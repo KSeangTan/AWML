@@ -1,5 +1,5 @@
 # modify from https://github.com/mit-han-lab/bevfusion
-from typing import Tuple
+from typing import Optional, Tuple
 
 import torch
 from mmdet3d.registry import MODELS
@@ -164,6 +164,7 @@ class BaseViewTransform(nn.Module):
         ybound: Tuple[float, float, float],
         zbound: Tuple[float, float, float],
         dbound: Tuple[float, float, float],
+        loss_depth: Optional[dict] = None,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -183,6 +184,11 @@ class BaseViewTransform(nn.Module):
         self.frustum = self.create_frustum()
         self.D = self.frustum.shape[0]
         self.fp16_enabled = False
+
+        if loss_depth is not None:
+            self.loss_depth = MODELS.build(loss_depth)
+        else:
+            self.loss_depth = None
 
     def create_frustum(self):
         iH, iW = self.image_size
@@ -534,10 +540,37 @@ class BaseDepthTransform(BaseViewTransform):
                 extra_trans=extra_trans,
             )
 
-            x = self.get_cam_feats(img, depth)
+            x, est_depth_distr, counts_3d_bins, gt_gaussian_depths = self.get_cam_feats(img, depth)
             x = self.bev_pool(x, geom)
 
-        return x
+            depth_loss = self.depth_loss_with_prob_dists(est_depth_distr, gt_gaussian_depths, counts_3d_bins)
+
+        return x, depth_loss
+
+    def depth_loss_with_prob_dists(self, est_depth_distr, gt_depth_distr, counts_3d):
+        """
+        Compute depth loss with probability distributions.
+        Args:
+            est_depth_distr: (B, N, fH, fW, D)
+            gt_depth_distr: (B, N, fH, fW, D)
+            counts_3d: (B, N, fH, fW, D)
+        """
+        if self.loss_depth is None or not self.training:
+            return 0.0
+
+        mask_flat = counts_3d.sum(dim=-1).view(-1) > 0
+
+        gt_depth_distr_flat = gt_depth_distr.view(-1, self.D)
+        est_depth_distr_flat = est_depth_distr.reshape(-1, self.D)
+
+        cross_ent = self.loss_depth(est_depth_distr_flat, gt_depth_distr_flat)
+        cross_ent_masked = cross_ent * mask_flat.float()
+        depth_loss = torch.sum(cross_ent_masked) / (mask_flat.sum() + 1e-8)
+        # cross_ent = -torch.sum(gt_depth_distr_flat * torch.log(est_depth_distr_flat + 1e-8), dim=-1)
+        # cross_ent_masked = cross_ent * mask_flat.float()
+        # depth_loss = torch.sum(cross_ent_masked) / (mask_flat.sum() + 1e-8)
+
+        return depth_loss
 
 
 @MODELS.register_module()
@@ -555,6 +588,7 @@ class DepthLSSTransform(BaseDepthTransform):
         dbound: Tuple[float, float, float],
         downsample: int = 1,
         lidar_depth_image_last_stride: int = 2,
+        gaussian_sigma: float = 1.0,
     ) -> None:
         """Compared with `LSSTransform`, `DepthLSSTransform` adds sparse depth
         information from lidar points into the inputs of the `depthnet`."""
@@ -569,17 +603,109 @@ class DepthLSSTransform(BaseDepthTransform):
             dbound=dbound,
         )
 
+        self.gaussian_sigma = gaussian_sigma
         self.dtransform = LidarDepthImageNet(in_channels=1, out_channels=64, last_stride=lidar_depth_image_last_stride)
         self.depthnet = DepthLSSNet(
             in_channels=in_channels + self.dtransform.out_channels, out_channels=self.D + self.C
         )
         self.downsample = DownSampleNet(downsample=downsample, in_channels=out_channels, out_channels=out_channels)
 
+    def get_gaussian_depths(self, counts_3d_bins, B, N, fH, fW):
+        """
+        Get gaussian depths from frequency of depth bins.
+        Args:
+            counts_3d_bins: (B, N, D, H, W)
+            N: number of points
+            C: number of channels
+            fH: feature height
+            fW: feature width
+        """
+        if self.training:
+            d_min, _, d_steps = self.dbound
+            # Centers of depth bins
+            centers = d_min + (torch.arange(self.D, device=counts_3d_bins.device) + 0.5) * d_steps
+            # Difference between each pair of centers of depth bins, DxD matrix
+            diff = centers.view(self.D, 1) - centers.view(1, self.D)
+            # Compute gaussian values for each pair of centers of depth bins to know how much if a bin j
+            # impacts the bin i, where nearer bins have more impact.
+            gaussian_values = torch.exp(-0.5 * (diff**2 / self.gaussian_sigma**2))
+            # Flatten counts_3d_bins to (B*N*fH*fW, D)
+            counts_flat = counts_3d_bins.reshape(-1, self.D)
+            # Compute gaussian counts by multiplying counts_3d_bins with gaussian_values (DxD) matrix, basically,
+            # it's discrete kernel density estimation, and each depth bin is a gaussian kernel, and the final probablity
+            # for a bin is the sum of nearby weighhted gaussian kernels
+            gaussian_counts = counts_flat @ gaussian_values.T
+            # Normalize gaussian counts to get gaussian probabilities
+            gaussian_probs = gaussian_counts / (gaussian_counts.sum(dim=-1, keepdim=True) + 1e-8)
+            gaussian_probs = gaussian_probs.view(B, N, fH, fW, self.D)
+        else:
+            gaussian_probs = None
+
+        return gaussian_probs
+
+    def get_depth_gt_bins(self, d, B, N, C, fH, fW):
+        """
+        Get depth ground truth bins from depths (d).
+        Args:
+            d: (B, N, H, W)
+            B: batch size
+            N: number of points
+            C: number of channels
+            fH: feature height
+            fW: feature width
+        """
+        if not self.training:
+            return None, None, None
+
+        BN = B * N
+        h, w = self.image_size
+
+        camera_id = torch.arange(BN).view(-1, 1, 1).expand(BN, h, w)
+        rows = torch.arange(h).view(1, -1, 1).expand(BN, h, w)
+        cols = torch.arange(w).view(1, 1, -1).expand(BN, h, w)
+
+        cell_j = rows // (h // fH)
+        cell_i = cols // (w // fW)
+
+        cell_id = camera_id * fH * fW + cell_j * fW + cell_i
+        cell_id = cell_id.to(device=d.device)
+
+        # Max depth will be dbound[1] - 0.5 * dbound[2] to make the last bin index
+        dist_bins = (d.clamp(min=0, max=self.dbound[1] - 0.5 * self.dbound[2])) / self.dbound[2]
+        depth_bins = self.D + 1
+        dist_bins = dist_bins.long()
+
+        flat_cell_id = cell_id.view(-1)
+        flat_dist_bin = dist_bins.view(-1)
+
+        flat_index = flat_cell_id * depth_bins + flat_dist_bin
+
+        counts_flat = torch.zeros(BN * fH * fW * depth_bins, dtype=torch.float, device=d.device)
+        counts_flat.scatter_add_(
+            0, flat_index, torch.ones_like(flat_index, dtype=torch.float, device=flat_index.device)
+        )
+
+        counts_3d_bins = counts_flat.view(B, N, fH, fW, depth_bins)
+
+        # The first bin starts from 0m, so we ignore it
+        counts_3d_bins = counts_3d_bins[:, :, :, :, 1:]
+
+        gt_gaussian_probs = self.get_gaussian_depths(counts_3d_bins=counts_3d_bins, B=B, N=N, fH=fH, fW=fW)
+
+        return counts_3d_bins, gt_gaussian_probs
+
     def get_cam_feats(self, x, d):
         B, N, C, fH, fW = x.shape
 
         x = x.view(B * N, C, fH, fW)
         d = d.view(B * N, *d.shape[2:])
+
+        # Get depth ground truth bins from depths (d)
+        if self.loss_depth is not None and self.training:
+            counts_3d_bins, gt_gaussian_probs = self.get_depth_gt_bins(d=d, B=B, N=N, C=C, fH=fH, fW=fW)
+        else:
+            counts_3d_bins = None
+            gt_gaussian_probs = None
 
         d = self.dtransform(d)
         x = torch.cat([d, x], dim=1)
@@ -590,9 +716,15 @@ class DepthLSSTransform(BaseDepthTransform):
 
         x = x.view(B, N, self.C, self.D, fH, fW)
         x = x.permute(0, 1, 3, 4, 5, 2)
-        return x
+
+        if self.loss_depth is not None and self.training:
+            est_depth_distr = depth.permute(0, 2, 3, 1).reshape(B, N, fH, fW, self.D)
+        else:
+            est_depth_distr = None
+
+        return x, est_depth_distr, counts_3d_bins, gt_gaussian_probs
 
     def forward(self, *args, **kwargs):
-        x = super().forward(*args, **kwargs)
+        x, depth_loss = super().forward(*args, **kwargs)
         x = self.downsample(x)
-        return x
+        return x, depth_loss

@@ -61,5 +61,7 @@ model = dict(
         zbound=[-10.0, 10.0, 20.0],
         dbound=[1.0, 130, 1.0],
         downsample=2,
+        loss_depth=dict(type="mmdet.CrossEntropyLoss", reduction="none"),
+        gaussian_sigma=1.0,
     ),
 )
