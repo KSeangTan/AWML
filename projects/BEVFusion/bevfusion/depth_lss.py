@@ -391,6 +391,7 @@ class LSSTransform(BaseViewTransform):
         zbound: Tuple[float, float, float],
         dbound: Tuple[float, float, float],
         downsample: int = 1,
+        loss_depth: Optional[dict] = None,
     ) -> None:
         super().__init__(
             in_channels=in_channels,
@@ -401,6 +402,7 @@ class LSSTransform(BaseViewTransform):
             ybound=ybound,
             zbound=zbound,
             dbound=dbound,
+            loss_depth=loss_depth,
         )
         self.depthnet = nn.Conv2d(in_channels, self.D + self.C, 1)
         self.downsample = DownSampleNet(downsample, out_channels, out_channels)
@@ -589,6 +591,7 @@ class DepthLSSTransform(BaseDepthTransform):
         downsample: int = 1,
         lidar_depth_image_last_stride: int = 2,
         gaussian_sigma: float = 1.0,
+        loss_depth: Optional[dict] = None,
     ) -> None:
         """Compared with `LSSTransform`, `DepthLSSTransform` adds sparse depth
         information from lidar points into the inputs of the `depthnet`."""
@@ -601,6 +604,7 @@ class DepthLSSTransform(BaseDepthTransform):
             ybound=ybound,
             zbound=zbound,
             dbound=dbound,
+            loss_depth=loss_depth,
         )
 
         self.gaussian_sigma = gaussian_sigma
