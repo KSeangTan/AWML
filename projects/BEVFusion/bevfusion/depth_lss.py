@@ -186,7 +186,8 @@ class BaseViewTransform(nn.Module):
         self.fp16_enabled = False
 
         if loss_depth is not None:
-            self.loss_depth = MODELS.build(loss_depth)
+            # self.loss_depth = MODELS.build(loss_depth)
+            self.loss_depth = nn.KLDivLoss(reduction="none")
         else:
             self.loss_depth = None
 
@@ -561,17 +562,17 @@ class BaseDepthTransform(BaseViewTransform):
             return 0.0
 
         mask_flat = counts_3d.sum(dim=-1).view(-1) > 0
-
         gt_depth_distr_flat = gt_depth_distr.view(-1, self.D)
         est_depth_distr_flat = est_depth_distr.reshape(-1, self.D)
 
-        cross_ent = self.loss_depth(est_depth_distr_flat, gt_depth_distr_flat)
-        cross_ent_masked = cross_ent * mask_flat.float()
-        depth_loss = torch.sum(cross_ent_masked) / (mask_flat.sum() + 1e-8)
-        # cross_ent = -torch.sum(gt_depth_distr_flat * torch.log(est_depth_distr_flat + 1e-8), dim=-1)
+        # cross_ent = self.loss_depth(torch.log(est_depth_distr_flat + 1e-8), gt_depth_distr_flat)
+        # cross_ent = cross_ent.sum(dim=-1)
         # cross_ent_masked = cross_ent * mask_flat.float()
         # depth_loss = torch.sum(cross_ent_masked) / (mask_flat.sum() + 1e-8)
 
+        cross_ent = -torch.sum(gt_depth_distr_flat * torch.log(est_depth_distr_flat + 1e-8), dim=-1)
+        cross_ent_masked = cross_ent * mask_flat.float()
+        depth_loss = torch.sum(cross_ent_masked) / (mask_flat.sum() + 1e-8)
         return depth_loss
 
 
