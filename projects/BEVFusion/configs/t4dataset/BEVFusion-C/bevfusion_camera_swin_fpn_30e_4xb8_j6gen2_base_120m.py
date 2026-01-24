@@ -15,7 +15,7 @@ custom_imports["imports"] += ["autoware_ml.detection3d.datasets.transforms"]
 data_root = "data/t4dataset/"
 info_directory_path = "info/kokseang_2_5/"
 
-experiment_group_name = "bevfusion_camera_ssl_depth/j6gen2_base/" + _base_.dataset_type
+experiment_group_name = "bevfusion_camera_no_ssl_depth/j6gen2_base/" + _base_.dataset_type
 experiment_name = "bevfusion_camera_swin_fpn_30e_4xb8_j6gen2_base_120m"
 work_dir = "work_dirs/" + experiment_group_name + "/" + experiment_name
 

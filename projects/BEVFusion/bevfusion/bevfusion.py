@@ -393,5 +393,6 @@ class BEVFusion(Base3DDetector):
             bbox_loss = self.bbox_head.loss(feats, batch_data_samples)
 
         losses.update(bbox_loss)
-        losses["depth_losses"] = depth_loss
+        if depth_loss:
+            losses["depth_losses"] = depth_loss
         return losses
