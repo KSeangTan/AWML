@@ -6,7 +6,7 @@ from .loading import BEVLoadMultiViewImageFromFiles, BEVFusionLoadAnnotations2D
 from .sparse_encoder import BEVFusionSparseEncoder
 from .transformer import TransformerDecoderLayer
 from .transforms_3d import BEVFusionGlobalRotScaleTrans, BEVFusionRandomFlip3D, GridMask, ImageAug3D
-from .utils import BBoxBEVL1Cost, HeuristicAssigner3D, HungarianAssigner3D, IoU3DCost
+from .utils import BBoxBEVL1Cost, HeuristicAssigner3D, HungarianAssigner3D, IoU3DCost, HungarianAssigner2D
 from .focal_head import FocalHead 
 from .cost_assigners import BBox3DL1CostAssigner, BBoxL1CostAssigner, FocalLossCostAssigner, IoUCostAssigner
 
@@ -33,5 +33,6 @@ __all__ = [
     "BBox3DL1CostAssigner",
     "BBoxL1CostAssigner",
     "FocalLossCostAssigner",
-    "IoUCostAssigner"
+    "IoUCostAssigner",
+    "HungarianAssigner2D"
 ]
