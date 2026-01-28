@@ -33,7 +33,7 @@ train_pipeline = [
         final_dim=_base_.image_size,
         resize_lim=[0.29, 0.35],
         bot_pct_lim=[0.0, 0.0],
-        rot_lim=[-5.4, 5.4],
+        rot_lim=[0.0, 0.0],
         rand_flip=True,
         is_train=True,
     ),
