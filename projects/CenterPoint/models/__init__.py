@@ -1,4 +1,5 @@
 from .backbones.second import SECOND
+from .backbones.resnet import BEVResNet
 from .dense_heads.centerpoint_head import CenterHead, CustomSeparateHead
 from .dense_heads.centerpoint_head_onnx import CenterHeadONNX, SeparateHeadONNX
 from .detectors.centerpoint import CenterPoint
@@ -12,6 +13,7 @@ from .voxel_encoders.pillar_encoder_onnx import BackwardPillarFeatureNetONNX, Pi
 __all__ = [
     "SECOND",
     "SECONDFPN",
+    "BEVResNet",
     "CenterPoint",
     "CenterHead",
     "CustomSeparateHead",
