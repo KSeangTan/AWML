@@ -43,7 +43,7 @@ if __name__ == "__main__":
         name="bev_pool",
         install_requires=[
             "onnx_graphsurgeon==0.5.8",
-            "spconv-cu120==2.3.6",
+            "spconv-cu124==2.3.8",
         ],
         ext_modules=[
             make_cuda_ext(
