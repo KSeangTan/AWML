@@ -42,7 +42,7 @@ eval_class_range = {
 
 # user setting
 data_root = "data/t4dataset/"
-info_directory_path = "info/kokseang_2_6/"
+info_directory_path = "info/user_name/"
 train_gpu_size = 8
 train_batch_size = 16
 test_batch_size = 2
@@ -50,7 +50,7 @@ num_workers = 16
 val_interval = 1
 max_epochs = 30
 
-experiment_group_name = "centerpoint_2.5.1/jpntaxi_base/" + _base_.dataset_type
+experiment_group_name = "centerpoint/jpntaxi_base/" + _base_.dataset_type
 experiment_name = "second_secfpn_8xb16_121m_jpntaxi_base_amp"
 work_dir = "work_dirs/" + experiment_group_name + "/" + experiment_name
 
@@ -441,13 +441,13 @@ vis_backends = [
     dict(type="LocalVisBackend"),
     dict(type="TensorboardVisBackend"),
     # Update info accordingly
-    # dict(
-    #     type="SafeMLflowVisBackend",
-    #     exp_name="(UserName) CenterPoint",
-    #     run_name="CenterPoint base",
-    #     tracking_uri="http://localhost:5000",
-    #     artifact_suffix=(),
-    # ),
+    dict(
+        type="SafeMLflowVisBackend",
+        exp_name="(UserName) CenterPoint",
+        run_name="CenterPoint base",
+        tracking_uri="http://localhost:5000",
+        artifact_suffix=(),
+    ),
 ]
 visualizer = dict(type="Det3DLocalVisualizer", vis_backends=vis_backends, name="visualizer")
 
