@@ -30,6 +30,7 @@ from tools.detection3d.t4dataset_converters.t4converter import (
 )
 from tools.detection3d.t4dataset_converters.t4dataset_statistics import T4DatasetSceneMetadata, T4DatasetStatistics
 from tools.detection3d.t4dataset_converters.update_infos_to_v2 import get_empty_standard_data_info
+from tools.detection3d.t4dataset_converters.webdataset_generator import WebDatasetGenerator
 
 _UNKNOWN = "unknown"
 
@@ -227,11 +228,15 @@ def parse_args():
         help="specify sweeps of lidar per example",
     )
     parser.add_argument(
-        "-o",
-        "--out_dir",
-        type=str,
-        required=True,
-        help="output directory of info file",
+        "--webdataset_output_dir", type=str, required=True, help="output directory for webdataset shards"
+    )
+    parser.add_argument("--info_output_dir", type=str, required=True, help="output directory for info files")
+    parser.add_argument(
+        "--max_scenes_per_shard",
+        type=int,
+        default=20,
+        help="maximum number of scenes per tar shard (default: 20). "
+        "All samples from the same scene are kept in the same shard.",
     )
     parser.add_argument(
         "--dataset_version_config_root",
@@ -284,6 +289,21 @@ def main():
         "val": T4DatasetStatistics(Path(args.out_dir), "val", args.version, cfg.class_names),
         "test": T4DatasetStatistics(Path(args.out_dir), "test", args.version, cfg.class_names),
     }
+
+    # Each value is a list of scene groups; each scene group is a list of wds sample dicts.
+    scene_groups: Dict[str, List[List[Dict[str, Any]]]] = {
+        "train": [],
+        "val": [],
+        "test": [],
+    }
+    webdataset_generator = WebDatasetGenerator(
+        data_root_path=args.root_path,
+        camera_types=cfg.camera_types,
+        out_dir=args.webdataset_output_dir,
+        max_scenes_per_shard=args.max_scenes_per_shard,
+        version=args.version,
+    )
+    frame_indices = {"train": 0, "val": 0, "test": 0}
     for dataset_version in cfg.dataset_version_list:
         dataset_list = osp.join(args.dataset_version_config_root, dataset_version + ".yaml")
         with open(dataset_list, "r") as f:
@@ -323,6 +343,7 @@ def main():
                         raise ValueError(f"{t4_dataset_id} does not exist.")
 
                 t4 = Tier4(data_root=scene_root_dir_path, verbose=False)
+                current_scene_samples: List[Dict[str, Any]] = []
                 infos = []
                 for i in range(0, len(t4.sample), sample_steps):
                     sample = t4.sample[i]
@@ -332,6 +353,19 @@ def main():
                     # info["version"] = dataset_version             # used for visualizations during debugging.
                     t4_infos[split].append(info)
                     infos.append(info)
+
+                    current_scene_samples.append(
+                        webdataset_generator.build_wds_sample(
+                            sample_index=frame_indices[split],
+                            scenario_path=scene_root_dir_path,
+                            info=info,
+                            camera_types=cfg.camera_types,
+                        )
+                    )
+                    frame_indices[split] += 1
+
+                if current_scene_samples:
+                    scene_groups[split].append(current_scene_samples)
 
                 scene_metadata = T4DatasetSceneMetadata(scene_id, city, vehicle_type)
                 for bev_distance_range in bev_distance_ranges:
@@ -354,7 +388,7 @@ def main():
     )
 
     def save(_infos, _split):
-        _info_path = osp.join(args.out_dir, f"t4dataset_{args.version}_infos_{_split}.pkl")
+        _info_path = osp.join(args.info_output_dir, f"t4dataset_{args.version}_infos_{_split}.pkl")
         mmengine.dump(dict(data_list=_infos, metainfo=metainfo), _info_path)
 
     save(t4_infos["train"], "train")
@@ -362,6 +396,11 @@ def main():
     save(t4_infos["train"] + t4_infos["val"], "trainval")
     save(t4_infos["test"], "test")
     save(t4_infos["train"] + t4_infos["val"] + t4_infos["test"], "all")
+
+    for split, groups in scene_groups.items():
+        if groups:
+            webdataset_generator.write_shards(groups, split)
+            print_log(f"Saved {split} shards to {args.webdataset_output_dir}")
 
 
 if __name__ == "__main__":
