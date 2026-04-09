@@ -257,7 +257,7 @@ def main():
     args = parse_args()
     # load config
     cfg = Config.fromfile(args.config)
-    os.makedirs(args.out_dir, exist_ok=True)
+    os.makedirs(args.info_output_dir, exist_ok=True)
 
     t4_infos = {
         "train": [],
@@ -285,21 +285,17 @@ def main():
 
     # Generate statistics for this split
     t4_statistics = {
-        "train": T4DatasetStatistics(Path(args.out_dir), "train", args.version, cfg.class_names),
-        "val": T4DatasetStatistics(Path(args.out_dir), "val", args.version, cfg.class_names),
-        "test": T4DatasetStatistics(Path(args.out_dir), "test", args.version, cfg.class_names),
+        "train": T4DatasetStatistics(Path(args.info_output_dir), "train", args.version, cfg.class_names),
+        "val": T4DatasetStatistics(Path(args.info_output_dir), "val", args.version, cfg.class_names),
+        "test": T4DatasetStatistics(Path(args.info_output_dir), "test", args.version, cfg.class_names),
     }
 
-    # Each value is a list of scene groups; each scene group is a list of wds sample dicts.
-    scene_groups: Dict[str, List[List[Dict[str, Any]]]] = {
-        "train": [],
-        "val": [],
-        "test": [],
-    }
+    webdataset_output_dir = Path(args.webdataset_output_dir)
+    webdataset_output_dir.mkdir(parents=True, exist_ok=True)
     webdataset_generator = WebDatasetGenerator(
         data_root_path=args.root_path,
         camera_types=cfg.camera_types,
-        out_dir=args.webdataset_output_dir,
+        out_dir=webdataset_output_dir,
         max_scenes_per_shard=args.max_scenes_per_shard,
         version=args.version,
     )
@@ -350,14 +346,13 @@ def main():
                     info = get_info(cfg, t4, sample, i, args.max_sweeps, city, vehicle_type)
                     if info is None:
                         continue
-                    # info["version"] = dataset_version             # used for visualizations during debugging.
                     t4_infos[split].append(info)
                     infos.append(info)
 
                     current_scene_samples.append(
                         webdataset_generator.build_wds_sample(
                             sample_index=frame_indices[split],
-                            scenario_path=scene_root_dir_path,
+                            scenario_path=Path(scene_root_dir_path),
                             info=info,
                             camera_types=cfg.camera_types,
                         )
@@ -365,7 +360,7 @@ def main():
                     frame_indices[split] += 1
 
                 if current_scene_samples:
-                    scene_groups[split].append(current_scene_samples)
+                    webdataset_generator.add_scene(current_scene_samples, split)
 
                 scene_metadata = T4DatasetSceneMetadata(scene_id, city, vehicle_type)
                 for bev_distance_range in bev_distance_ranges:
@@ -397,10 +392,7 @@ def main():
     save(t4_infos["test"], "test")
     save(t4_infos["train"] + t4_infos["val"] + t4_infos["test"], "all")
 
-    for split, groups in scene_groups.items():
-        if groups:
-            webdataset_generator.write_shards(groups, split)
-            print_log(f"Saved {split} shards to {args.webdataset_output_dir}")
+    webdataset_generator.close_all()
 
 
 if __name__ == "__main__":
