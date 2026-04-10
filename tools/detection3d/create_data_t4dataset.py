@@ -357,6 +357,7 @@ def main():
                             camera_types=cfg.camera_types,
                         )
                     )
+										info["sample_key"] = frame_indices[split]
                     frame_indices[split] += 1
 
                 if current_scene_samples:
