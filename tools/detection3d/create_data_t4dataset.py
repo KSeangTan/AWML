@@ -227,9 +227,6 @@ def parse_args():
         required=True,
         help="specify sweeps of lidar per example",
     )
-    parser.add_argument(
-        "--webdataset_output_dir", type=str, required=True, help="output directory for webdataset shards"
-    )
     parser.add_argument("--info_output_dir", type=str, required=True, help="output directory for info files")
     parser.add_argument(
         "--max_scenes_per_shard",
@@ -237,6 +234,9 @@ def parse_args():
         default=20,
         help="maximum number of scenes per tar shard (default: 20). "
         "All samples from the same scene are kept in the same shard.",
+    )
+    parser.add_argument(
+        "--webdataset_output_dir", type=str, help="output directory for webdataset shards"
     )
     parser.add_argument(
         "--dataset_version_config_root",
@@ -289,16 +289,20 @@ def main():
         "val": T4DatasetStatistics(Path(args.info_output_dir), "val", args.version, cfg.class_names),
         "test": T4DatasetStatistics(Path(args.info_output_dir), "test", args.version, cfg.class_names),
     }
-
-    webdataset_output_dir = Path(args.webdataset_output_dir)
-    webdataset_output_dir.mkdir(parents=True, exist_ok=True)
-    webdataset_generator = WebDatasetGenerator(
-        data_root_path=args.root_path,
-        camera_types=cfg.camera_types,
-        out_dir=webdataset_output_dir,
-        max_scenes_per_shard=args.max_scenes_per_shard,
-        version=args.version,
-    )
+     
+    if args.webdataset_output_dir is not None:
+        webdataset_output_dir = Path(args.webdataset_output_dir)
+        webdataset_output_dir.mkdir(parents=True, exist_ok=True)
+        webdataset_generator = WebDatasetGenerator(
+            data_root_path=args.root_path,
+            camera_types=cfg.camera_types,
+            out_dir=webdataset_output_dir,
+            max_scenes_per_shard=args.max_scenes_per_shard,
+            version=args.version,
+        )
+    else:
+        print_log("No webdataset output directory specified. Will only create data info files.")
+    
     frame_indices = {"train": 0, "val": 0, "test": 0}
     for dataset_version in cfg.dataset_version_list:
         dataset_list = osp.join(args.dataset_version_config_root, dataset_version + ".yaml")
@@ -349,15 +353,17 @@ def main():
                     t4_infos[split].append(info)
                     infos.append(info)
 
-                    current_scene_samples.append(
-                        webdataset_generator.build_wds_sample(
-                            sample_index=frame_indices[split],
-                            scenario_path=Path(scene_root_dir_path),
-                            info=info,
-                            camera_types=cfg.camera_types,
+                    if args.webdataset_output_dir is not None:
+                        current_scene_samples.append(
+                            webdataset_generator.build_wds_sample(
+                                sample_index=frame_indices[split],
+                                scenario_path=Path(scene_root_dir_path),
+                                info=info,
+                                camera_types=cfg.camera_types,
+                            )
                         )
-                    )
-										info["sample_key"] = frame_indices[split]
+                    
+                    info["sample_key"] = frame_indices[split]
                     frame_indices[split] += 1
 
                 if current_scene_samples:
