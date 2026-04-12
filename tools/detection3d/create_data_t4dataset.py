@@ -398,8 +398,9 @@ def main():
     save(t4_infos["train"] + t4_infos["val"], "trainval")
     save(t4_infos["test"], "test")
     save(t4_infos["train"] + t4_infos["val"] + t4_infos["test"], "all")
-
-    webdataset_generator.close_all()
+    
+    if args.webdataset_output_dir is not None:
+        webdataset_generator.close_all()
 
 
 if __name__ == "__main__":

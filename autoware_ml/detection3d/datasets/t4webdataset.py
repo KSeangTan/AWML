@@ -173,7 +173,7 @@ class T4WebDataset(wds.WebDataset):
             f"T4WebDataset: {len(self._valid_keys)} valid samples "
             f"({num_filtered} filtered), streaming from {wds_path}; "
             f"rank/world={self._rank}/{self._world_size}, "
-            f"repeat={self._repeat}, samples_per_rank={self._samples_per_rank}"
+            f"repeat={self._repeat}, samples_per_rank={self._samples_per_rank}",
             logger="current",
         )
 
