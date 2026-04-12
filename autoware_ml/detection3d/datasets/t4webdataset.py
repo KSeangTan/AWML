@@ -122,7 +122,8 @@ class T4WebDataset(wds.WebDataset):
             self.t4_dataset.full_init()
 
         self._raw_data_list = mmengine.load(self.t4_dataset.ann_file)["data_list"]
-        self._valid_keys = self._build_valid_keys()
+        self._sample_key_to_index = self._build_sample_key_to_index()
+        self._valid_keys = set(self._sample_key_to_index.keys())
         self._rank, self._world_size = get_dist_info()
         self._global_num_samples = len(self._valid_keys)
         self._is_train = not self.t4_dataset.test_mode
@@ -141,13 +142,14 @@ class T4WebDataset(wds.WebDataset):
                 # wds_filters.select(lambda s: int(s["__key__"]) in self._valid_keys),
                 wds_filters.map(self._process_sample),
                 wds_filters.select(lambda x: x is not None),
-                wds_filters.detshuffle(buffer=samples_shuffle_buffer, seed=self._shuffle_seed),
+                wds_filters.detshuffle(bufsize=samples_shuffle_buffer, seed=self._shuffle_seed),
             ]
         else:
             shards_shuffle_buffer = None
             self._repeat = False
             filter_stages = [
                 wds_filters.map(self._process_sample),
+                wds_filters.select(lambda x: x is not None),
             ]
 
         super().__init__(
@@ -178,17 +180,15 @@ class T4WebDataset(wds.WebDataset):
             f"repeat={self._repeat}, samples_per_rank={self._samples_per_rank}",
             logger="current",
         )
-
-    def _build_valid_keys(self) -> Set[int]:
-        """Cross-reference filtered data_list with the raw pickle to find
-        which original indices (= tar ``__key__`` values) survived filtering.
+    
+    def _build_sample_key_to_index(self) -> Dict[int, int]:
+        """Build a dictionary mapping sample keys to indices.
         """
-        valid_tokens = set()
-        for idx in range(len(self.t4_dataset)):
-            info = self.t4_dataset.data_list[idx]
-            valid_tokens.add(info["sample_key"])
-
-        return valid_tokens
+        sample_key_to_index = {}
+        for idx in range(len(self.t4_dataset.data_list)):
+            info = self.t4_dataset.get_data_info(idx)
+            sample_key_to_index[info["sample_key"]] = idx
+        return sample_key_to_index
 
     def __len__(self) -> int:
         return self._samples_per_rank
@@ -202,14 +202,15 @@ class T4WebDataset(wds.WebDataset):
         key = int(wds_sample["__key__"])
         if key not in self._valid_keys:
             return None
-
-        data_info = self.t4_dataset.get_data_info(key)
+        
+        data_info_index = self._sample_key_to_index[key]
+        data_info = self.t4_dataset.get_data_info(data_info_index)
         self._inject_wds_data(data_info, wds_sample)
 
         data_info["box_type_3d"] = self.t4_dataset.box_type_3d
         data_info["box_mode_3d"] = self.t4_dataset.box_mode_3d
 
-        if not self.t4_dataset.test_mode and self.t4_dataset.filter_empty_gt:
+        if self._is_train and self.t4_dataset.filter_empty_gt:
             ann_info = data_info.get("ann_info", {})
             gt_labels = ann_info.get("gt_labels_3d")
             if gt_labels is None or len(gt_labels) == 0:
@@ -219,7 +220,7 @@ class T4WebDataset(wds.WebDataset):
         if data_info is None:
             return None
 
-        if not self._is_train and self.t4_dataset.filter_empty_gt:
+        if self._is_train and self.t4_dataset.filter_empty_gt:
             if len(data_info["data_samples"].gt_instances_3d.labels_3d) == 0:
                 return None
 
