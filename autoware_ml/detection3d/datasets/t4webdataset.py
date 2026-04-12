@@ -42,9 +42,7 @@ class DetSimpleShardList(shardlists.SimpleShardList):
             dict: A dictionary containing the URL of each shard.
         """
         self.epoch += 1
-        print_log(f"DetSimpleShardList: epoch={self.epoch}, seed={self.seed}", logger="current")
         urls = self.urls.copy()
-        print_log(f"DetSimpleShardList: urls={urls[:10]}", logger="current")
         if self.seed is not None:
             seed = self.seed + self.epoch
             random.Random(seed).shuffle(urls)
