@@ -102,12 +102,14 @@ class T4WebDataset(wds.WebDataset):
         metainfo: dict,
         class_names: list,
         shuffle_seed: int,
-        shards_shuffle_buffer: int | bool = 100,
+        shards_shuffle_buffer: int = 100,
         samples_shuffle_buffer: int = 1000,
         pad_ddp: bool = True,
         split_by_node: bool = True,
         split_by_worker: bool = True,
         use_valid_flag: bool = False,
+        load_imgs: bool = True, 
+        load_lidars: bool = True
         **kwargs,
     ):
         self.t4_dataset = T4Dataset(
@@ -128,7 +130,7 @@ class T4WebDataset(wds.WebDataset):
 
         self._samples_per_rank = self._global_num_samples
         if self._is_train:
-            shards_shuffle_buffer = shards_shuffle_buffer if shards_shuffle_buffer > 0 else True
+            shards_shuffle_buffer = shards_shuffle_buffer if shards_shuffle_buffer > 0 else None
             if pad_ddp and self._world_size > 1:
                 self._samples_per_rank = math.ceil(self._samples_per_rank / self._world_size)
                 self._repeat = True
@@ -136,7 +138,7 @@ class T4WebDataset(wds.WebDataset):
                 self._repeat = False
                 
             filter_stages = [
-                wds_filters.select(lambda s: int(s["__key__"]) in self._valid_keys),
+                # wds_filters.select(lambda s: int(s["__key__"]) in self._valid_keys),
                 wds_filters.map(self._process_sample),
                 wds_filters.select(lambda x: x is not None),
                 wds_filters.detshuffle(buffer=samples_shuffle_buffer, seed=self._shuffle_seed),
@@ -213,15 +215,15 @@ class T4WebDataset(wds.WebDataset):
             if gt_labels is None or len(gt_labels) == 0:
                 return None
 
-        example = self.t4_dataset.pipeline(data_info)
-        if example is None:
+        data_info = self.t4_dataset.pipeline(data_info)
+        if data_info is None:
             return None
 
-        if not self.t4_dataset.test_mode and self.t4_dataset.filter_empty_gt:
-            if len(example["data_samples"].gt_instances_3d.labels_3d) == 0:
+        if not self._is_train and self.t4_dataset.filter_empty_gt:
+            if len(data_info["data_samples"].gt_instances_3d.labels_3d) == 0:
                 return None
 
-        return example
+        return data_info
 
     def _inject_wds_data(self, data_info: dict, wds_sample: dict) -> None:
         """Inject pre-loaded binary payloads from a tar sample.
@@ -229,21 +231,23 @@ class T4WebDataset(wds.WebDataset):
         Adds raw bytes under ``*_bytes`` keys so that pipeline transforms
         can read sensor data directly from memory instead of disk.
         """
-        if "lidar.pcd" in wds_sample:
-            data_info["lidar_points"]["lidar_bytes"] = wds_sample["lidar.pcd"]
+        if self._load_lidars:
+            if "lidar.pcd" in wds_sample:
+                data_info["lidar_points"]["lidar_bytes"] = wds_sample["lidar.pcd"]
 
-        for i, sweep in enumerate(data_info.get("lidar_sweeps", [])):
-            sweep_key = f"lidar_sweep_{i}.pcd"
-            if sweep_key in wds_sample:
-                sweep["lidar_points"]["lidar_bytes"] = wds_sample[sweep_key]
+            for i, sweep in enumerate(data_info.get("lidar_sweeps", [])):
+                sweep_key = f"lidar_sweep_{i}.pcd"
+                if sweep_key in wds_sample:
+                    sweep["lidar_points"]["lidar_bytes"] = wds_sample[sweep_key]
 
-        for cam_name in list(data_info.get("images", {}).keys()):
-            cam_lower = cam_name.lower()
-            for ext in ("jpg", "jpeg", "png"):
-                wds_key = f"{cam_lower}.{ext}"
-                if wds_key in wds_sample:
-                    data_info["images"][cam_name]["img_bytes"] = wds_sample[wds_key]
-                    break
+        if self._load_imgs:
+            for cam_name in list(data_info.get("images", {}).keys()):
+                cam_lower = cam_name.lower()
+                for ext in ("jpg", "jpeg", "png"):
+                    wds_key = f"{cam_lower}.{ext}"
+                    if wds_key in wds_sample:
+                        data_info["images"][cam_name]["img_bytes"] = wds_sample[wds_key]
+                        break
 
     def create_url_iterator(self, args):
         """Create an appropriate URL iterator based on the input type.
