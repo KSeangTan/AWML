@@ -80,6 +80,7 @@ train_dataloader = dict(
         pipeline=_base_.train_pipeline,
         backend_args=_base_.backend_args,
         empty_check=True,
+        num_workers=_base_.num_workers,
 	),
 )
 
@@ -93,8 +94,8 @@ val_dataloader = dict(
         type="T4WebDataset",
         data_root=data_root,
         wds_path=webdataset_data_root + "val/",
-        shards_shuffle_buffer=30,
         glob_wds_path=True,
+        shards_shuffle_buffer=30,
         samples_shuffle_buffer=200,
         shuffle_seed=_base_.randomness_seed,
         load_imgs=False,
@@ -110,6 +111,7 @@ val_dataloader = dict(
         pipeline=_base_.test_pipeline,
         backend_args=_base_.backend_args,
         empty_check=False,
+        num_workers=_base_.num_workers,
 	),
 )
 
@@ -140,6 +142,7 @@ test_dataloader = dict(
         pipeline=_base_.test_pipeline,
         backend_args=_base_.backend_args,
         empty_check=False,
+        num_workers=_base_.num_workers,
 	),
 )
 

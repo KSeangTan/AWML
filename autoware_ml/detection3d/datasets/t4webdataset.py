@@ -42,7 +42,9 @@ class DetSimpleShardList(shardlists.SimpleShardList):
             dict: A dictionary containing the URL of each shard.
         """
         self.epoch += 1
+        print_log(f"DetSimpleShardList: epoch={self.epoch}, seed={self.seed}", logger="current")
         urls = self.urls.copy()
+        print_log(f"DetSimpleShardList: urls={urls[:10]}", logger="current")
         if self.seed is not None:
             seed = self.seed + self.epoch
             random.Random(seed).shuffle(urls)
@@ -103,6 +105,7 @@ class T4WebDataset(wds.WebDataset):
         metainfo: dict,
         class_names: list,
         shuffle_seed: int,
+        num_workers: int,
         glob_wds_path: bool = False,
         shards_shuffle_buffer: int = 100,
         samples_shuffle_buffer: int = 1000,
@@ -133,12 +136,15 @@ class T4WebDataset(wds.WebDataset):
         self._shuffle_seed = shuffle_seed
         self._load_imgs = load_imgs
         self._load_lidars = load_lidars
+        self._num_workers = num_workers
 
-        self._samples_per_rank = self._global_num_samples
+        self._samples_per_rank = self._global_num_samples / self._world_size
+        self._samples_per_workers = self._global_num_samples / (self._num_workers * self._world_size)
         if self._is_train:
             shards_shuffle_buffer = shards_shuffle_buffer if shards_shuffle_buffer > 0 else None
-            if pad_ddp and self._world_size > 1:
-                self._samples_per_rank = math.ceil(self._samples_per_rank / self._world_size)
+            if pad_ddp:
+                self._samples_per_rank = math.ceil(self._samples_per_rank)
+                self._samples_per_workers = math.ceil(self._samples_per_workers)
                 self._repeat = True
             else:
                 self._repeat = False
@@ -179,14 +185,14 @@ class T4WebDataset(wds.WebDataset):
         
         # Set the number of samples per rank in training only
         if self._is_train:
-            self.with_epoch(self._samples_per_rank)
+            self.with_epoch(self._samples_per_workers)
 
         num_filtered = len(self._raw_data_list) - len(self._valid_keys)
         print_log(
             f"T4WebDataset: {len(self._valid_keys)} valid samples "
             f"({num_filtered} filtered), streaming from {wds_path}; "
             f"rank/world={self._rank}/{self._world_size}, "
-            f"repeat={self._repeat}, samples_per_rank={self._samples_per_rank}",
+            f"repeat={self._repeat}, samples_per_rank={self._samples_per_rank}, samples_per_workers={self._samples_per_workers}",
             logger="current",
         )
     
