@@ -120,7 +120,7 @@ class T4WebDataset(wds.WebDataset):
         )
         if not self.t4_dataset._fully_initialized:
             self.t4_dataset.full_init()
-
+        
         self._raw_data_list = mmengine.load(self.t4_dataset.ann_file)["data_list"]
         self._sample_key_to_index = self._build_sample_key_to_index()
         self._valid_keys = set(self._sample_key_to_index.keys())
@@ -185,7 +185,7 @@ class T4WebDataset(wds.WebDataset):
         """Build a dictionary mapping sample keys to indices.
         """
         sample_key_to_index = {}
-        for idx in range(len(self.t4_dataset.data_list)):
+        for idx in range(len(self.t4_dataset.data_address)):
             info = self.t4_dataset.get_data_info(idx)
             sample_key_to_index[info["sample_key"]] = idx
         return sample_key_to_index
