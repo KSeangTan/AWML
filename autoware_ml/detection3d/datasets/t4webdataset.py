@@ -109,7 +109,7 @@ class T4WebDataset(wds.WebDataset):
         split_by_worker: bool = True,
         use_valid_flag: bool = False,
         load_imgs: bool = True, 
-        load_lidars: bool = True
+        load_lidars: bool = True,
         **kwargs,
     ):
         self.t4_dataset = T4Dataset(
@@ -233,12 +233,12 @@ class T4WebDataset(wds.WebDataset):
         """
         if self._load_lidars:
             if "lidar.pcd" in wds_sample:
-                data_info["lidar_points"]["lidar_bytes"] = wds_sample["lidar.pcd"]
+                data_info["lidar_point_bytes"] = wds_sample["lidar.pcd"]
 
             for i, sweep in enumerate(data_info.get("lidar_sweeps", [])):
                 sweep_key = f"lidar_sweep_{i}.pcd"
                 if sweep_key in wds_sample:
-                    sweep["lidar_points"]["lidar_bytes"] = wds_sample[sweep_key]
+                    sweep["lidar_point_bytes"] = wds_sample[sweep_key]
 
         if self._load_imgs:
             for cam_name in list(data_info.get("images", {}).keys()):
