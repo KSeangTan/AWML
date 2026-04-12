@@ -48,6 +48,12 @@ class LoadPointsFromBytes(BaseTransform):
                  norm_intensity: bool = False,
                  norm_elongation: bool = False):
         super().__init__()
+        
+        if isinstance(use_dim, int):
+            use_dim = list(range(use_dim))
+        assert max(use_dim) < load_dim, \
+            f'Expect all used dimensions < {load_dim}, got {use_dim}'
+        assert coord_type in ['CAMERA', 'LIDAR', 'DEPTH']
 
         self.coord_type = coord_type
         self.lidar_point_bytes_key = lidar_point_bytes_key

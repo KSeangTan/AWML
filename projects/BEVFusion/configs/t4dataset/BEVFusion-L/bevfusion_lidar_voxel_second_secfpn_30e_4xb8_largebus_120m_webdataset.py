@@ -63,8 +63,9 @@ train_dataloader = dict(
         type="T4WebDataset",
         data_root=data_root,
         wds_path=webdataset_data_root + "train/",
+        glob_wds_path=True,
         shards_shuffle_buffer=30,
-        samples_shuffle_buffer=200,
+        samples_shuffle_buffer=400,
         shuffle_seed=_base_.randomness_seed,
         load_imgs=False,
         load_lidars=True,
@@ -78,6 +79,7 @@ train_dataloader = dict(
         filter_cfg=_base_.filter_cfg,
         pipeline=_base_.train_pipeline,
         backend_args=_base_.backend_args,
+        empty_check=True,
 	),
 )
 
@@ -92,6 +94,7 @@ val_dataloader = dict(
         data_root=data_root,
         wds_path=webdataset_data_root + "val/",
         shards_shuffle_buffer=30,
+        glob_wds_path=True,
         samples_shuffle_buffer=200,
         shuffle_seed=_base_.randomness_seed,
         load_imgs=False,
@@ -106,6 +109,7 @@ val_dataloader = dict(
         filter_cfg=_base_.filter_cfg,
         pipeline=_base_.test_pipeline,
         backend_args=_base_.backend_args,
+        empty_check=False,
 	),
 )
 
@@ -119,6 +123,7 @@ test_dataloader = dict(
         type="T4WebDataset",
         data_root=data_root,
         wds_path=webdataset_data_root + "test/",
+        glob_wds_path=True,
         shards_shuffle_buffer=30,
         samples_shuffle_buffer=200,
         shuffle_seed=_base_.randomness_seed,
@@ -134,6 +139,7 @@ test_dataloader = dict(
         filter_cfg=_base_.filter_cfg,
         pipeline=_base_.test_pipeline,
         backend_args=_base_.backend_args,
+        empty_check=False,
 	),
 )
 

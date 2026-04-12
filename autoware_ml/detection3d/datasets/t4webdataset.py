@@ -1,4 +1,5 @@
 import copy
+import glob
 import math
 import random
 from typing import Any, Dict, Optional, Set
@@ -102,6 +103,7 @@ class T4WebDataset(wds.WebDataset):
         metainfo: dict,
         class_names: list,
         shuffle_seed: int,
+        glob_wds_path: bool = False,
         shards_shuffle_buffer: int = 100,
         samples_shuffle_buffer: int = 1000,
         pad_ddp: bool = True,
@@ -110,6 +112,7 @@ class T4WebDataset(wds.WebDataset):
         use_valid_flag: bool = False,
         load_imgs: bool = True, 
         load_lidars: bool = True,
+        empty_check: bool = True,
         **kwargs,
     ):
         self.t4_dataset = T4Dataset(
@@ -128,6 +131,8 @@ class T4WebDataset(wds.WebDataset):
         self._global_num_samples = len(self._valid_keys)
         self._is_train = not self.t4_dataset.test_mode
         self._shuffle_seed = shuffle_seed
+        self._load_imgs = load_imgs
+        self._load_lidars = load_lidars
 
         self._samples_per_rank = self._global_num_samples
         if self._is_train:
@@ -151,7 +156,10 @@ class T4WebDataset(wds.WebDataset):
                 wds_filters.map(self._process_sample),
                 wds_filters.select(lambda x: x is not None),
             ]
-
+        
+        if glob_wds_path:
+            wds_path = sorted(glob.glob(wds_path + "*.tar"))
+        
         super().__init__(
             wds_path,
             shardshuffle=shards_shuffle_buffer,
@@ -159,6 +167,7 @@ class T4WebDataset(wds.WebDataset):
             seed=self._shuffle_seed,
             nodesplitter=wds.split_by_node if split_by_node else None,
             workersplitter=wds.split_by_worker if split_by_worker else None,
+            empty_check=empty_check,
         )
         
         for stage in filter_stages:
