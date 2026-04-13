@@ -135,18 +135,20 @@ class T4WebDataset(wds.WebDataset):
         self._load_imgs = load_imgs
         self._load_lidars = load_lidars
         self._num_workers = num_workers
-
-        self._samples_per_rank = self._global_num_samples / self._world_size
-        self._samples_per_workers = self._global_num_samples / (self._num_workers * self._world_size)
+        
+        if self._is_train and pad_ddp:
+            self._samples_per_rank = math.ceil(self._global_num_samples / self._world_size)
+            self._samples_per_workers = math.ceil(self._global_num_samples / (self._num_workers * self._world_size))
+            self._repeat = True
+        else:
+            self._samples_per_rank = math.ceil((self._global_num_samples - self._rank) / self._world_size)
+            self._samples_per_workers = math.ceil((self._global_num_samples - self._rank) / (self._num_workers * self._world_size))
+            self._repeat = False
+        
+        self._samples_per_rank = int(self._samples_per_rank)
+        self._samples_per_workers = int(self._samples_per_workers)
         if self._is_train:
-            shards_shuffle_buffer = shards_shuffle_buffer if shards_shuffle_buffer > 0 else None
-            if pad_ddp:
-                self._samples_per_rank = math.ceil(self._samples_per_rank)
-                self._samples_per_workers = math.ceil(self._samples_per_workers)
-                self._repeat = True
-            else:
-                self._repeat = False
-                
+            shards_shuffle_buffer = shards_shuffle_buffer if shards_shuffle_buffer > 0 else None        
             filter_stages = [
                 # wds_filters.select(lambda s: int(s["__key__"]) in self._valid_keys),
                 wds_filters.map(self._process_sample),
