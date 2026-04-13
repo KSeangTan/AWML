@@ -138,15 +138,15 @@ class T4WebDataset(wds.WebDataset):
         
         if self._is_train and pad_ddp:
             self._samples_per_rank = math.ceil(self._global_num_samples / self._world_size)
-            self._samples_per_workers = math.ceil(self._global_num_samples / (self._num_workers * self._world_size))
+            self._samples_per_worker = math.ceil(self._global_num_samples / (self._num_workers * self._world_size))
             self._repeat = True
         else:
             self._samples_per_rank = math.ceil((self._global_num_samples - self._rank) / self._world_size)
-            self._samples_per_workers = math.ceil((self._global_num_samples - self._rank) / (self._num_workers * self._world_size))
+            self._samples_per_worker = math.ceil((self._global_num_samples - self._rank) / (self._num_workers * self._world_size))
             self._repeat = False
         
         self._samples_per_rank = int(self._samples_per_rank)
-        self._samples_per_workers = int(self._samples_per_workers)
+        self._samples_per_worker = int(self._samples_per_worker)
         if self._is_train:
             shards_shuffle_buffer = shards_shuffle_buffer if shards_shuffle_buffer > 0 else None        
             filter_stages = [
@@ -183,9 +183,8 @@ class T4WebDataset(wds.WebDataset):
         if self._repeat:
             self.repeat()
         
-        # Set the number of samples per rank in training only
-        if self._is_train:
-            self.with_epoch(self._samples_per_workers)
+        # Set the number of samples per worker
+        self.with_epoch(self._samples_per_worker)
 
         num_filtered = len(self._raw_data_list) - len(self._valid_keys)
         print_log(
