@@ -151,9 +151,9 @@ class T4WebDataset(wds.WebDataset):
             shards_shuffle_buffer = shards_shuffle_buffer if shards_shuffle_buffer > 0 else None        
             filter_stages = [
                 # wds_filters.select(lambda s: int(s["__key__"]) in self._valid_keys),
+                wds_filters.detshuffle(bufsize=samples_shuffle_buffer, seed=self._shuffle_seed),
                 wds_filters.map(self._process_sample),
                 wds_filters.select(lambda x: x is not None),
-                wds_filters.detshuffle(bufsize=samples_shuffle_buffer, seed=self._shuffle_seed),
             ]
         else:
             shards_shuffle_buffer = None
@@ -184,7 +184,8 @@ class T4WebDataset(wds.WebDataset):
             self.repeat()
         
         # Set the number of samples per worker
-        self.with_epoch(self._samples_per_worker)
+        if self._is_train:
+            self.with_epoch(self._samples_per_worker)
 
         num_filtered = len(self._raw_data_list) - len(self._valid_keys)
         print_log(
@@ -205,7 +206,10 @@ class T4WebDataset(wds.WebDataset):
         return sample_key_to_index
 
     def __len__(self) -> int:
-        return self._samples_per_rank
+        if self._is_train:
+          return self._samples_per_rank
+        else:
+          return len(self._global_num_samples)
 
     def _process_sample(self, wds_sample: dict) -> Optional[Dict[str, Any]]:
         """Transform a raw tar sample into a pipeline-processed example.
@@ -214,6 +218,10 @@ class T4WebDataset(wds.WebDataset):
         empty ground truth, or failed pipeline).
         """
         key = int(wds_sample["__key__"])
+        if not self._is_train:
+          # print_log(f"Processing sample: {key}, gpu rank: {self._rank}", logger="current")
+          print(f"Processing sample: {key}, gpu rank: {self._rank}")
+
         if key not in self._valid_keys:
             return None
         

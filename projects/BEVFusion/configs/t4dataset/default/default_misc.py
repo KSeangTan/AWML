@@ -4,6 +4,6 @@ vis_backends = [
 ]
 
 visualizer = dict(type="Det3DLocalVisualizer", vis_backends=vis_backends, name="visualizer")
-custom_hooks = [dict(type="DisableObjectSampleHook", disable_after_epoch=15)]
+# custom_hooks = [dict(type="DisableObjectSampleHook", disable_after_epoch=15)]
 randomness_seed = 0
 randomness = dict(seed=randomness_seed, diff_rank_seed=True, deterministic=True)
