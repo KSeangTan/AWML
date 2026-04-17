@@ -209,7 +209,7 @@ class T4WebDataset(wds.WebDataset):
         if self._is_train:
           return self._samples_per_rank
         else:
-          return len(self._global_num_samples)
+          return self._global_num_samples
 
     def _process_sample(self, wds_sample: dict) -> Optional[Dict[str, Any]]:
         """Transform a raw tar sample into a pipeline-processed example.
@@ -218,10 +218,6 @@ class T4WebDataset(wds.WebDataset):
         empty ground truth, or failed pipeline).
         """
         key = int(wds_sample["__key__"])
-        if not self._is_train:
-          # print_log(f"Processing sample: {key}, gpu rank: {self._rank}", logger="current")
-          print(f"Processing sample: {key}, gpu rank: {self._rank}")
-
         if key not in self._valid_keys:
             return None
         
