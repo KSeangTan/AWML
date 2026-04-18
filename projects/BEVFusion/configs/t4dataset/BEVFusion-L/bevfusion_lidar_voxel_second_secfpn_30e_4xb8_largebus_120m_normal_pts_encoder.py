@@ -16,7 +16,7 @@ data_root = "data/t4datasets/"
 info_directory_path = "info/kokseang_test/"
 
 experiment_group_name = "bevfusion_lidar_intensity/largebus/" + _base_.dataset_type
-experiment_name = "lidar_voxel_second_secfpn_30e_4xb8_largebus_base_120m_normal"
+experiment_name = "lidar_no_norm_voxel_encoder_second_secfpn_30e_4xb8_largebus_base_120m_normal"
 work_dir = "work_dirs/" + experiment_group_name + "/" + experiment_name
 
 # model parameter
@@ -31,7 +31,7 @@ model = dict(
         _delete_=True,
         type="BEVFusionVoxelEncoder", 
         in_channels=5,
-        feat_channels=[32, 32],
+        feat_channels=[32, 64],
         with_distance=False,
         with_cluster_center=True,
         with_voxel_center=True,
@@ -40,11 +40,13 @@ model = dict(
         norm_cfg=dict(type="BN1d", eps=1e-3, momentum=0.01),
         legacy=False,
         # min-max normalization for x, y, z, intensity, time_lag, where the max of time lag technically is two seeps (200 ms) here
-        min_norm_values=[_base_.point_cloud_range[0], _base_.point_cloud_range[1], _base_.point_cloud_range[2], 0.0, 0.0],
-        max_norm_values=[_base_.point_cloud_range[3], _base_.point_cloud_range[4], _base_.point_cloud_range[5], 255.0, 0.2],
+        min_norm_values=None,
+        max_norm_values=None,
+        # min_norm_values=[_base_.point_cloud_range[0], _base_.point_cloud_range[1], _base_.point_cloud_range[2], 0.0, 0.0],
+        # max_norm_values=[_base_.point_cloud_range[3], _base_.point_cloud_range[4], _base_.point_cloud_range[5], 255.0, 0.2],
     ),
     pts_middle_encoder=dict(
-        in_channels=32,
+        in_channels=64,
         sparse_shape=_base_.grid_size,
     ),
     bbox_head=dict(
