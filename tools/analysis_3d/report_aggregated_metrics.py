@@ -244,13 +244,13 @@ def build_location_report(
                     label_gts[label] = g
                     break
 
-        header_cols = ["Model version | mAP"]
+        header_cols = ["Model version", "mAP", "mAPH"]
         for label in all_labels:
             gts = label_gts.get(label, 0)
             header_cols.append(f"{label}<br>({gts:,})")
         lines.append("| " + " | ".join(header_cols) + " |")
 
-        sep_cols = [":----", "---:"] + ["---:"] * len(all_labels)
+        sep_cols = [":----", "---:", "---:"] + ["---:"] * len(all_labels)
         lines.append("| " + " | ".join(sep_cols) + " |")
 
         # One row per model
@@ -258,8 +258,9 @@ def build_location_report(
             m = entry["metrics"]
             model_id = f"{entry['model_name']} {entry['model_version']}"
             mAP_val = _fmt(m.get(mAP_key))
+            mAPH_val = _fmt(m.get(mAPH_key))
 
-            cells = [f"{model_id}", mAP_val]
+            cells = [f"{model_id}", mAP_val, mAPH_val]
             for label in all_labels:
                 lm = entry["label_metrics"].get(label, {})
                 ml = entry["metadata_label"].get(label, {})
@@ -314,7 +315,7 @@ def build_location_report(
                     f"| {_fmt_threshold_vals(conf_vals)} |"
                 )
 
-            # Summary row with mAP
+            # Summary row
             total_gts = entry["metadata"].get(
                 "metadata/test_total_num_ground_truths"
             )
@@ -368,6 +369,7 @@ def generate_location_plot(
     import numpy as np
 
     mAP_key = f"T4MetricV2/mAP_{metric_type}"
+    mAPH_key = f"T4MetricV2/mAPH_{metric_type}"
     metric_type_short = metric_type.replace("_", " ").title()
 
     sorted_ranges = sorted(metric_ranges)
@@ -379,7 +381,7 @@ def generate_location_plot(
 
     n_subplots = len(ranges_with_data)
     fig, axes = plt.subplots(
-        n_subplots, 1, figsize=(12, 5.5 * n_subplots), squeeze=False
+        n_subplots, 1, figsize=(14, 5.5 * n_subplots), squeeze=False
     )
 
     for row, metric_range in enumerate(ranges_with_data):
@@ -396,7 +398,7 @@ def generate_location_plot(
         total_gts = _get_total_gts(entries)
         x_tick_labels = [
             f"{lb}\n(GTs: {label_gts[lb]:,})" for lb in all_labels
-        ] + [f"mAP\n(GTs: {total_gts:,})"]
+        ] + [f"mAP\n(GTs: {total_gts:,})", "mAPH"]
 
         model_ids: list[str] = []
         for entry in entries:
@@ -426,15 +428,16 @@ def generate_location_plot(
                         ap_vals.append(ap)
                 values.append(ap_vals[0] if ap_vals else 0.0)
 
-            mAP_vals = []
-            for entry in entries:
-                eid = f"{entry['model_name']}\n{entry['model_version']}"
-                if eid != mid:
-                    continue
-                v = entry["metrics"].get(mAP_key)
-                if v is not None:
-                    mAP_vals.append(v)
-            values.append(mAP_vals[0] if mAP_vals else 0.0)
+            for agg_key in [mAP_key, mAPH_key]:
+                agg_vals = []
+                for entry in entries:
+                    eid = f"{entry['model_name']}\n{entry['model_version']}"
+                    if eid != mid:
+                        continue
+                    v = entry["metrics"].get(agg_key)
+                    if v is not None:
+                        agg_vals.append(v)
+                values.append(agg_vals[0] if agg_vals else 0.0)
 
             offset = (model_idx - (n_models - 1) / 2) * bar_width
             bars = ax.bar(
@@ -455,7 +458,7 @@ def generate_location_plot(
         ax.set_xticks(x)
         ax.set_xticklabels(x_tick_labels, fontsize=11)
         ax.set_ylim(0, 1.18)
-        ax.set_ylabel("AP / mAP", fontsize=12)
+        ax.set_ylabel("AP / mAP / mAPH", fontsize=12)
         ax.set_title(
             f"{metric_range}  ({metric_type_short})",
             fontsize=13,
