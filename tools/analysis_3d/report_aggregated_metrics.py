@@ -281,7 +281,7 @@ def build_location_report(
             lines.append(f"**{model_id}**")
             lines.append("")
             lines.append(
-                f"| Label | GTs | Preds | mAP "
+                f"| class_name | GTs | Preds | mAP "
                 f"| AP@{thresh_str} "
                 f"| max_f1@{thresh_str} "
                 f"| optimal_conf@{thresh_str} |"
