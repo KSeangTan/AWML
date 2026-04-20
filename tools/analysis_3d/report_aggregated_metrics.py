@@ -28,13 +28,13 @@ from pathlib import Path
 # ── Input specification ──────────────────────────────────────────────────────
 # Each entry: (model_name, model_version, json_file_path)
 json_files: list[tuple[str, str, str]] = [
-    ("bevfusion_lidar", "base/2.6.0", "work_dirs/bevfusion_lidar_2.6.0/base/T4Dataset/lidar_voxel_second_secfpn_50e_8xb8_base_120m_t4metric_v2/20260414_015859/testing/j6gen2/aggregated_metrics.json"),
-    ("bevfusion_lidar", "base/2.6.0", "work_dirs/bevfusion_lidar_2.6.0/base/T4Dataset/lidar_voxel_second_secfpn_50e_8xb8_base_120m_t4metric_v2/20260414_043334/testing/largebus/aggregated_metrics.json"),
-    ("bevfusion_lidar", "base/2.6.0", "work_dirs/bevfusion_lidar_2.6.0/base/T4Dataset/lidar_voxel_second_secfpn_50e_8xb8_base_120m_t4metric_v2/20260414_052656/testing/jpntaxi_gen2/aggregated_metrics.json"),
-    ("bevfusion_lidar", "base/2.6.0", "work_dirs/bevfusion_lidar_2.6.0/base/T4Dataset/lidar_voxel_second_secfpn_50e_8xb8_base_120m_t4metric_v2/20260414_110622/testing/base/aggregated_metrics.json"),
-    ("bevfusion_lidar", "j6gen2_base/2.6.1", "work_dirs/bevfusion_lidar_intensity_2.6.1/j6gen2_base/T4Dataset/lidar_voxel_second_secfpn_30e_8xb8_j6gen2_base_120m_t4metric_v2/20260415_145838/testing/largebus/aggregated_metrics.json"),
-    ("bevfusion_lidar", "j6gen2_base/2.6.1", "work_dirs/bevfusion_lidar_intensity_2.6.1/j6gen2_base/T4Dataset/lidar_voxel_second_secfpn_30e_8xb8_j6gen2_base_120m_t4metric_v2/20260415_154546/testing/j6gen2/aggregated_metrics.json"),
-    ("bevfusion_lidar", "j6gen2_base/2.6.1", "work_dirs/bevfusion_lidar_intensity_2.6.1/j6gen2_base/T4Dataset/lidar_voxel_second_secfpn_30e_8xb8_j6gen2_base_120m_t4metric_v2/20260415_181748/testing/j6gen2_base/aggregated_metrics.json"),
+    ("BEVFusion-LiDAR", "base/2.6.0", "work_dirs/bevfusion_lidar_2.6.0/base/T4Dataset/lidar_voxel_second_secfpn_50e_8xb8_base_120m_t4metric_v2/20260414_015859/testing/j6gen2/aggregated_metrics.json"),
+    ("BEVFusion-LiDAR", "base/2.6.0", "work_dirs/bevfusion_lidar_2.6.0/base/T4Dataset/lidar_voxel_second_secfpn_50e_8xb8_base_120m_t4metric_v2/20260414_043334/testing/largebus/aggregated_metrics.json"),
+    ("BEVFusion-LiDAR", "base/2.6.0", "work_dirs/bevfusion_lidar_2.6.0/base/T4Dataset/lidar_voxel_second_secfpn_50e_8xb8_base_120m_t4metric_v2/20260414_052656/testing/jpntaxi_gen2/aggregated_metrics.json"),
+    ("BEVFusion-LiDAR", "base/2.6.0", "work_dirs/bevfusion_lidar_2.6.0/base/T4Dataset/lidar_voxel_second_secfpn_50e_8xb8_base_120m_t4metric_v2/20260414_110622/testing/base/aggregated_metrics.json"),
+    ("BEVFusion-LiDAR", "j6gen2_base/2.6.1", "work_dirs/bevfusion_lidar_intensity_2.6.1/j6gen2_base/T4Dataset/lidar_voxel_second_secfpn_30e_8xb8_j6gen2_base_120m_t4metric_v2/20260415_145838/testing/largebus/aggregated_metrics.json"),
+    ("BEVFusion-LiDAR", "j6gen2_base/2.6.1", "work_dirs/bevfusion_lidar_intensity_2.6.1/j6gen2_base/T4Dataset/lidar_voxel_second_secfpn_30e_8xb8_j6gen2_base_120m_t4metric_v2/20260415_154546/testing/j6gen2/aggregated_metrics.json"),
+    ("BEVFusion-LiDAR", "j6gen2_base/2.6.1", "work_dirs/bevfusion_lidar_intensity_2.6.1/j6gen2_base/T4Dataset/lidar_voxel_second_secfpn_30e_8xb8_j6gen2_base_120m_t4metric_v2/20260415_181748/testing/j6gen2_base/aggregated_metrics.json"),
 ]
 
 
@@ -244,10 +244,10 @@ def build_location_report(
                     label_gts[label] = g
                     break
 
-        header_cols = ["Model | mAP"]
+        header_cols = ["Model version | mAP"]
         for label in all_labels:
             gts = label_gts.get(label, 0)
-            header_cols.append(f"{label}<br>(GTs: {gts:,})")
+            header_cols.append(f"{label}<br>({gts:,})")
         lines.append("| " + " | ".join(header_cols) + " |")
 
         sep_cols = [":----", "---:"] + ["---:"] * len(all_labels)
