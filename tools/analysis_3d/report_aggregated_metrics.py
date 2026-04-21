@@ -86,6 +86,11 @@ json_files: list[tuple[str, str, str]] = [
     (
         "BEVFusion-LiDAR",
         "base/2.7.0",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/base/evaluation/j6gen2_base/20260418_162713/testing/j6gen2_base/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "base/2.7.0",
         "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/base/evaluation/base/20260419_051045/testing/base/aggregated_metrics.json",
     ),
     (
