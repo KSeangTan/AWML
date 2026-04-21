@@ -2,7 +2,7 @@
 
 Takes a list of (model_name, model_version, json_path) entries and produces,
 for each location/vehicle_type, a subfolder containing:
-  - A markdown report with per-label AP, APH, prediction counts, and GT counts.
+  - A markdown report with per-label AP, APH, and GT counts.
   - Grouped bar-chart PNG figures (one per metric type).
 
 Usage:
@@ -99,13 +99,11 @@ def _extract_label_aph(
     return sum(values) / len(values)
 
 
-def _extract_label_preds_gts(
+def _extract_label_gts(
     metadata_label: dict,
     label: str,
-) -> tuple[int | None, int | None]:
-    preds = metadata_label.get(f"metadata_label/test_{label}_num_predictions")
-    gts = metadata_label.get(f"metadata_label/test_{label}_num_ground_truths")
-    return preds, gts
+) -> int | None:
+    return metadata_label.get(f"metadata_label/test_{label}_num_ground_truths")
 
 
 def _fmt(val: float | None, decimals: int = 4) -> str:
@@ -263,12 +261,8 @@ def build_location_report(
             cells = [f"{model_id}", mAP_val, mAPH_val]
             for label in all_labels:
                 lm = entry["label_metrics"].get(label, {})
-                ml = entry["metadata_label"].get(label, {})
                 ap = _extract_label_ap(lm, label, metric_type)
-                preds, _ = _extract_label_preds_gts(ml, label)
-                ap_str = _fmt(ap)
-                preds_str = _fmt_int(preds)
-                cells.append(f"{ap_str}<br>(preds: {preds_str})")
+                cells.append(_fmt(ap))
             lines.append("| " + " | ".join(cells) + " |")
         lines.append("")
 
@@ -281,13 +275,13 @@ def build_location_report(
             lines.append(f"**{model_id}**")
             lines.append("")
             lines.append(
-                f"| class_name | GTs | Preds | mAP "
+                f"| class_name | GTs | mAP "
                 f"| AP@{thresh_str} "
                 f"| max_f1@{thresh_str} "
                 f"| optimal_conf@{thresh_str} |"
             )
             lines.append(
-                "| :---- | ---: | ---: | ---: | :---- | :---- | :---- |"
+                "| :---- | ---: | ---: | :---- | :---- | :---- |"
             )
 
             m = entry["metrics"]
@@ -296,7 +290,7 @@ def build_location_report(
             for label in all_labels:
                 lm = entry["label_metrics"].get(label, {})
                 ml = entry["metadata_label"].get(label, {})
-                preds, gts = _extract_label_preds_gts(ml, label)
+                gts = _extract_label_gts(ml, label)
 
                 ap_vals = _get_per_threshold(lm, label, metric_type, "AP")
                 f1_vals = _get_per_threshold(lm, label, metric_type, "max-f1score")
@@ -308,24 +302,18 @@ def build_location_report(
                 lines.append(
                     f"| {label} "
                     f"| {_fmt_int(gts)} "
-                    f"| {_fmt_int(preds)} "
                     f"| {label_map} "
                     f"| {_fmt_threshold_vals(ap_vals)} "
                     f"| {_fmt_threshold_vals(f1_vals)} "
                     f"| {_fmt_threshold_vals(conf_vals)} |"
                 )
 
-            # Summary row
             total_gts = entry["metadata"].get(
                 "metadata/test_total_num_ground_truths"
-            )
-            total_preds = entry["metadata"].get(
-                "metadata/test_total_num_predictions"
             )
             lines.append(
                 f"| **ALL** "
                 f"| {_fmt_int(total_gts)} "
-                f"| {_fmt_int(total_preds)} "
                 f"| {mAP_val} "
                 f"| — | — | — |"
             )
