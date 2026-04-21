@@ -28,13 +28,86 @@ from pathlib import Path
 # ── Input specification ──────────────────────────────────────────────────────
 # Each entry: (model_name, model_version, json_file_path)
 json_files: list[tuple[str, str, str]] = [
-    ("BEVFusion-LiDAR", "base/2.6.0", "work_dirs/bevfusion_lidar_2.6.0/base/T4Dataset/lidar_voxel_second_secfpn_50e_8xb8_base_120m_t4metric_v2/20260414_015859/testing/j6gen2/aggregated_metrics.json"),
-    ("BEVFusion-LiDAR", "base/2.6.0", "work_dirs/bevfusion_lidar_2.6.0/base/T4Dataset/lidar_voxel_second_secfpn_50e_8xb8_base_120m_t4metric_v2/20260414_043334/testing/largebus/aggregated_metrics.json"),
-    ("BEVFusion-LiDAR", "base/2.6.0", "work_dirs/bevfusion_lidar_2.6.0/base/T4Dataset/lidar_voxel_second_secfpn_50e_8xb8_base_120m_t4metric_v2/20260414_052656/testing/jpntaxi_gen2/aggregated_metrics.json"),
-    ("BEVFusion-LiDAR", "base/2.6.0", "work_dirs/bevfusion_lidar_2.6.0/base/T4Dataset/lidar_voxel_second_secfpn_50e_8xb8_base_120m_t4metric_v2/20260414_110622/testing/base/aggregated_metrics.json"),
-    ("BEVFusion-LiDAR", "j6gen2_base/2.6.1", "work_dirs/bevfusion_lidar_intensity_2.6.1/j6gen2_base/T4Dataset/lidar_voxel_second_secfpn_30e_8xb8_j6gen2_base_120m_t4metric_v2/20260415_145838/testing/largebus/aggregated_metrics.json"),
-    ("BEVFusion-LiDAR", "j6gen2_base/2.6.1", "work_dirs/bevfusion_lidar_intensity_2.6.1/j6gen2_base/T4Dataset/lidar_voxel_second_secfpn_30e_8xb8_j6gen2_base_120m_t4metric_v2/20260415_154546/testing/j6gen2/aggregated_metrics.json"),
-    ("BEVFusion-LiDAR", "j6gen2_base/2.6.1", "work_dirs/bevfusion_lidar_intensity_2.6.1/j6gen2_base/T4Dataset/lidar_voxel_second_secfpn_30e_8xb8_j6gen2_base_120m_t4metric_v2/20260415_181748/testing/j6gen2_base/aggregated_metrics.json"),
+    (
+        "BEVFusion-LiDAR",
+        "base/2.6.0",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/base/evaluation/j6gen2/20260414_015859/testing/j6gen2/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "base/2.6.0",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/base/evaluation/jpntaxi_gen2/20260414_052656/testing/jpntaxi_gen2/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "base/2.6.0",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/base/evaluation/base/20260414_110622/testing/base/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "base/2.6.0",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/base/evaluation/j6gen2_base/20260413_223816/testing/j6gen2_base/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "base/2.6.0",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/base/evaluation/largebus/20260414_043334/testing/largebus/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "j6gen2_base/2.6.1",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/j6gen2_base/evaluation/largebus/20260415_145838/testing/largebus/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "j6gen2_base/2.6.1",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/j6gen2_base/evaluation/j6gen2/20260415_154546/testing/j6gen2/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "j6gen2_base/2.6.1",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/j6gen2_base/evaluation/j6gen2_base/20260415_181748/testing/j6gen2_base/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "base/2.7.0",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/base/evaluation/j6gen2/20260418_194843/testing/j6gen2/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "base/2.7.0",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/base/evaluation/jpntaxi_gen2/20260418_233555/testing/jpntaxi_gen2/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "base/2.7.0",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/base/evaluation/largebus/20260418_223743/testing/largebus/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "base/2.7.0",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/base/evaluation/base/20260419_051045/testing/base/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "j6gen2_base/2.7.1",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/j6gen2_base/evaluation/j6gen2/20260419_160639/testing/j6gen2/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "j6gen2_base/2.7.1",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/j6gen2_base/evaluation/j6gen2_base/20260419_184031/testing/j6gen2_base/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "j6gen2_base/2.7.1",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/j6gen2_base/evaluation/largebus/20260419_151837/testing/largebus/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "jpntaxi_base/2.7.1",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/jpntaxi_base/evaluation/jpntaxi_gen2/20260418_084904/testing/jpntaxi_gen2/aggregated_metrics.json",
+    ),
 ]
 
 
@@ -75,9 +148,7 @@ def _extract_label_ap(
     metric_type: str,
 ) -> float | None:
     """Compute the mean AP across distance thresholds for a label and metric type."""
-    pattern = re.compile(
-        rf"T4MetricV2_label/{re.escape(label)}_AP_{re.escape(metric_type)}_[\d.]+$"
-    )
+    pattern = re.compile(rf"T4MetricV2_label/{re.escape(label)}_AP_{re.escape(metric_type)}_[\d.]+$")
     values = [v for k, v in label_metrics.items() if pattern.match(k)]
     if not values:
         return None
@@ -90,9 +161,7 @@ def _extract_label_aph(
     metric_type: str,
 ) -> float | None:
     """Compute the mean APH across distance thresholds for a label and metric type."""
-    pattern = re.compile(
-        rf"T4MetricV2_label/{re.escape(label)}_APH_{re.escape(metric_type)}_[\d.]+$"
-    )
+    pattern = re.compile(rf"T4MetricV2_label/{re.escape(label)}_APH_{re.escape(metric_type)}_[\d.]+$")
     values = [v for k, v in label_metrics.items() if pattern.match(k)]
     if not values:
         return None
@@ -280,9 +349,7 @@ def build_location_report(
                 f"| max_f1@{thresh_str} "
                 f"| optimal_conf@{thresh_str} |"
             )
-            lines.append(
-                "| :---- | ---: | ---: | :---- | :---- | :---- |"
-            )
+            lines.append("| :---- | ---: | ---: | :---- | :---- | :---- |")
 
             m = entry["metrics"]
             mAP_val = _fmt(m.get(mAP_key))
@@ -308,15 +375,8 @@ def build_location_report(
                     f"| {_fmt_threshold_vals(conf_vals)} |"
                 )
 
-            total_gts = entry["metadata"].get(
-                "metadata/test_total_num_ground_truths"
-            )
-            lines.append(
-                f"| **ALL** "
-                f"| {_fmt_int(total_gts)} "
-                f"| {mAP_val} "
-                f"| — | — | — |"
-            )
+            total_gts = entry["metadata"].get("metadata/test_total_num_ground_truths")
+            lines.append(f"| **ALL** " f"| {_fmt_int(total_gts)} " f"| {mAP_val} " f"| — | — | — |")
             lines.append("")
 
     return "\n".join(lines)
@@ -361,16 +421,12 @@ def generate_location_plot(
     metric_type_short = metric_type.replace("_", " ").title()
 
     sorted_ranges = sorted(metric_ranges)
-    ranges_with_data = [
-        r for r in sorted_ranges if (r, loc_vehicle) in groups
-    ]
+    ranges_with_data = [r for r in sorted_ranges if (r, loc_vehicle) in groups]
     if not ranges_with_data:
         return None
 
     n_subplots = len(ranges_with_data)
-    fig, axes = plt.subplots(
-        n_subplots, 1, figsize=(14, 5.5 * n_subplots), squeeze=False
-    )
+    fig, axes = plt.subplots(n_subplots, 1, figsize=(14, 5.5 * n_subplots), squeeze=False)
 
     for row, metric_range in enumerate(ranges_with_data):
         ax = axes[row, 0]
@@ -384,9 +440,10 @@ def generate_location_plot(
 
         label_gts = {lb: _get_label_gts(entries, lb) for lb in all_labels}
         total_gts = _get_total_gts(entries)
-        x_tick_labels = [
-            f"{lb}\n(GTs: {label_gts[lb]:,})" for lb in all_labels
-        ] + [f"mAP\n(GTs: {total_gts:,})", "mAPH"]
+        x_tick_labels = [f"{lb}\n(GTs: {label_gts[lb]:,})" for lb in all_labels] + [
+            f"mAP\n(GTs: {total_gts:,})",
+            "mAPH",
+        ]
 
         model_ids: list[str] = []
         for entry in entries:
@@ -428,9 +485,7 @@ def generate_location_plot(
                 values.append(agg_vals[0] if agg_vals else 0.0)
 
             offset = (model_idx - (n_models - 1) / 2) * bar_width
-            bars = ax.bar(
-                x + offset, values, bar_width, label=mid, zorder=3
-            )
+            bars = ax.bar(x + offset, values, bar_width, label=mid, zorder=3)
             for bar, val in zip(bars, values):
                 if val > 0:
                     ax.text(
@@ -480,9 +535,7 @@ def main() -> None:
 
     groups, metric_ranges_seen, loc_vehicles_seen = _load_data(json_files)
 
-    all_loc_vehicles: list[str] = sorted(
-        {lv for lvs in loc_vehicles_seen.values() for lv in lvs}
-    )
+    all_loc_vehicles: list[str] = sorted({lv for lvs in loc_vehicles_seen.values() for lv in lvs})
 
     if args.output_dir:
         for loc_vehicle in all_loc_vehicles:
@@ -490,24 +543,18 @@ def main() -> None:
             sub_dir.mkdir(parents=True, exist_ok=True)
 
             for mt in metric_types:
-                report = build_location_report(
-                    loc_vehicle, groups, metric_ranges_seen, mt
-                )
+                report = build_location_report(loc_vehicle, groups, metric_ranges_seen, mt)
                 md_path = sub_dir / f"report_{mt}.md"
                 md_path.write_text(report)
                 print(f"  {md_path}")
 
-                png_path = generate_location_plot(
-                    loc_vehicle, groups, metric_ranges_seen, mt, sub_dir
-                )
+                png_path = generate_location_plot(loc_vehicle, groups, metric_ranges_seen, mt, sub_dir)
                 if png_path:
                     print(f"  {png_path}")
     else:
         for mt in metric_types:
             for loc_vehicle in all_loc_vehicles:
-                report = build_location_report(
-                    loc_vehicle, groups, metric_ranges_seen, mt
-                )
+                report = build_location_report(loc_vehicle, groups, metric_ranges_seen, mt)
                 print(report)
 
 
