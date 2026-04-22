@@ -34,8 +34,10 @@ class CategoryAnalysisCallback(AnalysisCallbackInterface):
         self.full_output_path.mkdir(exist_ok=True, parents=True)
 
         self.analysis_file_name = "category_count_{}.png"
+        self.frame_presence_file_name = "category_frame_presence_{}.png"
         self.y_axis_label = "Category"
         self.x_axis_label = "Category counts by datasets"
+        self.frame_presence_x_axis_label = "Frames containing category by datasets"
         self.legend_loc = "upper right"
 
     def _visualize_total_category_counts(
@@ -96,11 +98,60 @@ class CategoryAnalysisCallback(AnalysisCallbackInterface):
         )
         plt.close()
 
+    def _visualize_category_frame_presence(
+        self,
+        dataset_category_frame_counts: Dict[str, Dict[str, int]],
+        dataset_total_frames: Dict[str, int],
+        split_name: str,
+        figsize: tuple[int, int] = (18, 15),
+    ) -> None:
+        """
+        Visualize the number of frames containing each category per dataset,
+        with the ratio (frames / total) annotated on each bar.
+        :param dataset_category_frame_counts: {dataset name: {category name: frame count}}.
+        :param dataset_total_frames: {dataset name: total number of frames}.
+        :param split_name: Split name (train, test, val).
+        :param figsize: Figure size.
+        """
+        all_available_categories = sorted({cat for counts in dataset_category_frame_counts.values() for cat in counts})
+        all_available_datasets = sorted(dataset_category_frame_counts.keys())
+
+        plot_data = defaultdict(list)
+        for dataset_name in all_available_datasets:
+            for category_name in all_available_categories:
+                plot_data[dataset_name].append(dataset_category_frame_counts[dataset_name].get(category_name, 0))
+
+        y = np.arange(len(all_available_categories))
+        height = min(0.25, (1.0 / len(all_available_datasets)) - 0.05)
+        multiplier = 0
+
+        _, ax = plt.subplots(figsize=figsize)
+        for dataset_name, counts in plot_data.items():
+            offset = height * multiplier
+            total = dataset_total_frames[dataset_name]
+            rects = ax.barh(y + offset, counts, height, label=f"{dataset_name} ({total} frames)", edgecolor="w")
+            labels = [f"{c} ({c / total * 100:.1f}%)" if total > 0 else str(c) for c in counts]
+            ax.bar_label(rects, labels=labels, padding=3, fontsize=7)
+            multiplier += 1
+
+        ax.set_ylabel(self.y_axis_label)
+        ax.set_title(self.frame_presence_x_axis_label)
+        ax.set_yticks(y + height, all_available_categories)
+        ax.legend(loc=self.legend_loc)
+        ax.invert_yaxis()
+
+        plt.tight_layout()
+        analysis_file_name = self.full_output_path / self.frame_presence_file_name.format(split_name)
+        plt.savefig(fname=analysis_file_name, format="png", bbox_inches="tight")
+        plt.close()
+
     def run(self, dataset_split_analysis_data: Dict[DatasetSplitName, AnalysisData]) -> None:
         """Inherited, check the superclass."""
         print_log(f"Running {self.__class__.__name__}")
         for split_option in SplitOptions:
             dataset_category_counts = {}
+            dataset_category_frame_counts = {}
+            dataset_total_frames = {}
             for dataset_split_name, analysis_data in dataset_split_analysis_data.items():
                 split_name = dataset_split_name.split_name
                 if split_name != split_option.value:
@@ -110,8 +161,17 @@ class CategoryAnalysisCallback(AnalysisCallbackInterface):
                 dataset_category_counts[dataset_name] = analysis_data.aggregate_category_counts(
                     remapping_classes=self.remapping_classes
                 )
+                dataset_category_frame_counts[dataset_name] = analysis_data.aggregate_category_frame_counts(
+                    remapping_classes=self.remapping_classes
+                )
+                dataset_total_frames[dataset_name] = analysis_data.get_total_frame_count()
 
             self._visualize_total_category_counts(
                 dataset_category_counts=dataset_category_counts, split_name=split_option.value
+            )
+            self._visualize_category_frame_presence(
+                dataset_category_frame_counts=dataset_category_frame_counts,
+                dataset_total_frames=dataset_total_frames,
+                split_name=split_option.value,
             )
         print_log(f"Done running {self.__class__.__name__}")

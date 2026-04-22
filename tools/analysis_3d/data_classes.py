@@ -239,6 +239,27 @@ class AnalysisData:
                     total_category_counts[name] += counts
         return total_category_counts
 
+    def aggregate_category_frame_counts(
+        self,
+        remapping_classes: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, int]:
+        """
+        Get total number of frames where each category appears at least once.
+        :param remapping_classes: Set if we want to aggregate after remapping categories.
+        :return: A dict of {category name: number of frames containing that category}.
+        """
+        category_frame_counts: Dict[str, int] = defaultdict(int)
+        for scenario_data in self.scenario_data.values():
+            scenario_category_counts = scenario_data.get_scenario_category_counts(remapping_classes=remapping_classes)
+            for category_counts in scenario_category_counts.values():
+                for category_name in category_counts:
+                    category_frame_counts[category_name] += 1
+        return category_frame_counts
+
+    def get_total_frame_count(self) -> int:
+        """Get total number of frames (samples) in this AnalysisData."""
+        return sum(len(scenario_data.sample_data) for scenario_data in self.scenario_data.values())
+
     def aggregate_category_attr_counts(
         self,
         category_name: str,
