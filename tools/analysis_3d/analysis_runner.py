@@ -78,7 +78,7 @@ class AnalysisRunner:
                 out_path=self.out_path, analysis_dir="mapping_categories", remapping_classes=self.remapping_classes
             ),
             CategoryAnalysisCallback(
-                out_path=self.out_path, analysis_dir="not_mapping_categories", remapping_classes=self.remapping_classes
+                out_path=self.out_path, analysis_dir="not_mapping_categories", 
             ),
             CategoryAttributeAnalysisCallback(
                 out_path=self.out_path, category_name="vehicle.motorcycle", analysis_dir="vehicle_motorcycle_attr"
