@@ -74,8 +74,8 @@ name_mapping = {
     "pedestrian.stroller": "pedestrian",
     "pedestrian.wheelchair": "pedestrian",
     "movable_object.barrier": "barrier",
-    "movable_object.debris": "debris",
-    "movable_object.pushable_pullable": "pushable_pullable",
+    "movable_object.debris": "barrier",
+    "movable_object.pushable_pullable": "barrier",
     "movable_object.trafficcone": "traffic_cone",
     "movable_object.traffic_cone": "traffic_cone",
     "animal": "animal",
@@ -96,7 +96,7 @@ name_mapping = {
     # DBv2.0 and DBv3.0
     "animal": "animal",
     "movable_object.barrier": "barrier",
-    "movable_object.pushable_pullable": "pushable_pullable",
+    "movable_object.pushable_pullable": "barrier",
     "movable_object.traffic_cone": "traffic_cone",
     "pedestrian.adult": "pedestrian",
     "pedestrian.child": "pedestrian",
@@ -106,7 +106,7 @@ name_mapping = {
     "pedestrian.stroller": "pedestrian",
     "pedestrian.wheelchair": "pedestrian",
     "static_object.bicycle rack": "bicycle rack",
-    "static_object.bollard": "bollard",
+    "static_object.bollard": "barrier",
     "vehicle.ambulance": "car",  # Define vehicle.ambulance as car since vehicle.emergency (ambulance & police) is defined as car
     "vehicle.bicycle": "bicycle",
     "vehicle.bus": "bus",
@@ -126,6 +126,8 @@ name_mapping = {
     "semi_trailer": "trailer",
     "tractor_unit": "truck",
     "construction_vehicle": "truck",
+		"traffic_cone": "traffic_cone",
+		"barrier": "barrier",
 }
 
 class_names = [

@@ -80,24 +80,24 @@ class AnalysisRunner:
             CategoryAnalysisCallback(
                 out_path=self.out_path, analysis_dir="not_mapping_categories", remapping_classes=self.remapping_classes
             ),
-            # CategoryAttributeAnalysisCallback(
-            #     out_path=self.out_path, category_name="vehicle.motorcycle", analysis_dir="vehicle_motorcycle_attr"
-            # ),
-            # CategoryAttributeAnalysisCallback(
-            #     out_path=self.out_path, category_name="vehicle.bicycle", analysis_dir="vehicle_bicycle_attr"
-            # ),
-            # CategoryAttributeAnalysisCallback(
-            #     out_path=self.out_path, category_name="bicycle", analysis_dir="bicycle_attr"
-            # ),
-            # CategoryAttributeAnalysisCallback(
-            #     out_path=self.out_path, category_name="motorcycle", analysis_dir="motorcycle_attr"
-            # ),
-            # CategoryAttributeAnalysisCallback(
-            #     out_path=self.out_path,
-            #     category_name="bicycle",
-            #     analysis_dir="remapping_bicycle_attr",
-            #     remapping_classes=self.remapping_classes,
-            # ),
+            CategoryAttributeAnalysisCallback(
+                out_path=self.out_path, category_name="vehicle.motorcycle", analysis_dir="vehicle_motorcycle_attr"
+            ),
+            CategoryAttributeAnalysisCallback(
+                out_path=self.out_path, category_name="vehicle.bicycle", analysis_dir="vehicle_bicycle_attr"
+            ),
+            CategoryAttributeAnalysisCallback(
+                out_path=self.out_path, category_name="bicycle", analysis_dir="bicycle_attr"
+            ),
+            CategoryAttributeAnalysisCallback(
+                out_path=self.out_path, category_name="motorcycle", analysis_dir="motorcycle_attr"
+            ),
+            CategoryAttributeAnalysisCallback(
+                out_path=self.out_path,
+                category_name="bicycle",
+                analysis_dir="remapping_bicycle_attr",
+                remapping_classes=self.remapping_classes,
+            ),
         ]
 
     def _get_dataset_scenario_names(self, dataset_version: str) -> Dict[str, List[str]]:
@@ -170,7 +170,7 @@ class AnalysisRunner:
         """
         scenario_data = {}
         for scene_token_with_version in scene_tokens:
-            scene_token, version = scene_token_with_version.split("/")
+            scene_token, version, location, vehicle_type = scene_token_with_version.split("/")
             print_log(f"Creating scenario data for the scene: {scene_token}, version: {version}")
             scene_root_dir_path = get_scene_root_dir_path(
                 root_path=self.data_root_path,
