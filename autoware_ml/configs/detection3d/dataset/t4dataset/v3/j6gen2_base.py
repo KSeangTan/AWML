@@ -61,85 +61,47 @@ camera_types = {
 
 # class setting
 name_mapping = {
-	  "animal": "animal",
-		"car": "car",
-		"truck": "truck",
-		"bus": "bus"
-	  "barrier": "barrier",
-		"debris": "barrier",
-		"bicycle": "bicycle",
-		"motorcycle": "bicycle",
-		"traffic_cone": "traffic_cone",
-
-    # DBv1.0
-    "vehicle.car": "car",
-    "vehicle.construction": "truck",
-    "vehicle.emergency (ambulance & police)": "car",
-    "vehicle.motorcycle": "bicycle",
-    "vehicle.trailer": "trailer",
-    "vehicle.truck": "truck",
-    "vehicle.bicycle": "bicycle",
-    "vehicle.bus (bendy & rigid)": "bus",
-    "pedestrian.adult": "pedestrian",
-    "pedestrian.child": "pedestrian",
-    "pedestrian.construction_worker": "pedestrian",
-    "pedestrian.personal_mobility": "pedestrian",
-    "pedestrian.police_officer": "pedestrian",
-    "pedestrian.stroller": "pedestrian",
-    "pedestrian.wheelchair": "pedestrian",
-    "movable_object.barrier": "barrier",
-    "movable_object.debris": "debris",
-    "movable_object.pushable_pullable": "pushable_pullable",
-    "movable_object.trafficcone": "traffic_cone",
-    "movable_object.traffic_cone": "traffic_cone",
-    "animal": "animal",
-    "static_object.bicycle_rack": "bicycle_rack",
-    # DBv1.1 and UCv2.0
-    "car": "car",
-    "truck": "truck",
-    "bus": "bus",
-    "trailer": "trailer",
-    "motorcycle": "bicycle",
-    "bicycle": "bicycle",
-    "police_car": "car",
-    "pedestrian": "pedestrian",
-    "police_officer": "pedestrian",
-    "forklift": "car",
-    "construction_worker": "pedestrian",
-    "stroller": "pedestrian",
-    # DBv2.0 and DBv3.0
-    "animal": "animal",
-    "movable_object.barrier": "barrier",
-    "movable_object.pushable_pullable": "pushable_pullable",
-    "movable_object.traffic_cone": "traffic_cone",
-    "pedestrian.adult": "pedestrian",
-    "pedestrian.child": "pedestrian",
-    "pedestrian.construction_worker": "pedestrian",
-    "pedestrian.personal_mobility": "pedestrian",
-    "pedestrian.police_officer": "pedestrian",
-    "pedestrian.stroller": "pedestrian",
-    "pedestrian.wheelchair": "pedestrian",
-    "static_object.bicycle rack": "bicycle rack",
-    "static_object.bollard": "bollard",
-    "vehicle.ambulance": "car",  # Define vehicle.ambulance as car since vehicle.emergency (ambulance & police) is defined as car
-    "vehicle.bicycle": "bicycle",
-    "vehicle.bus": "bus",
-    "vehicle.car": "car",
-    "vehicle.construction": "truck",
-    "vehicle.fire": "truck",
-    "vehicle.motorcycle": "bicycle",
-    "vehicle.police": "car",
-    "vehicle.trailer": "trailer",
-    "vehicle.truck": "truck",
-    # DBv1.3
+    # CAR
     "ambulance": "car",
+    "car": "car",
+    "forklift": "car",
     "kart": "car",
-    "wheelchair": "pedestrian",
-    "personal_mobility": "pedestrian",
-    "fire_truck": "truck",
-    "semi_trailer": "trailer",
-    "tractor_unit": "truck",
+    "other_vehicle": "car",
+    "police_car": "car",
+    # TRUCK
     "construction_vehicle": "truck",
+    "tractor": "truck",
+    "tractor_unit": "truck",
+    "truck": "truck",
+    "fire_truck": "truck",
+    # TRAILER
+    "semi_trailer": "trailer",
+    "vehicle.trailer": "trailer",
+    "trailer": "trailer",
+    # BUS
+    "bus": "bus",
+    # BICYCLE
+    "bicycle": "bicycle",
+    "motorcycle": "bicycle",
+    # PEDESTRIAN
+    "pedestrian": "pedestrian",
+    "construction_worker": "pedestrian",
+    "other_pedestrian": "pedestrian",
+    "personal_mobility": "pedestrian",
+    "stroller": "pedestrian",
+    "wheelchair": "pedestrian",
+    "police_officer": "pedestrian",
+    # BARRIER
+    "barrier": "barrier",
+    # TRAFFIC CONE
+    "traffic_cone": "traffic_cone",
+    # ANIMAL
+    "animal": "animal",
+    # Construction sign
+    "construction_sign": "construction_sign",
+    "construction sign": "construction_sign",
+    # train
+    "train": "train",
 }
 
 class_names = [

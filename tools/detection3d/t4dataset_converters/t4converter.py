@@ -586,7 +586,12 @@ def get_annotations(
 
     valid_flag = np.array([anno.num_lidar_pts > 0 for anno in annotations], dtype=bool).reshape(-1)
 
-    names = np.array([cfg.name_mapping.get(b.semantic_label.name, b.semantic_label.name) for b in boxes])
+    names = []
+    for box in boxes:
+        box_name = cfg.name_mapping.get(box.semantic_label.name, None)
+        if box_name is None:
+            raise ValueError(f"Box name {box.semantic_label.name} not found in name mapping")
+        names.append(box_name)
     # we need to convert rot to SECOND format.
     # Copied from https://github.com/open-mmlab/mmdetection3d/blob/0f9dfa97a35ef87e16b700742d3c358d0ad15452/tools/dataset_converters/nuscenes_converter.py#L258
     gt_boxes = np.concatenate([locs, dims[:, [1, 0, 2]], rots], axis=1)
