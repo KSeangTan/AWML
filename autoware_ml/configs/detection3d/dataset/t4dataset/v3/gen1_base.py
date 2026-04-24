@@ -153,20 +153,21 @@ camera_panels = [
 ]
 
 # Add filter attributes
-filter_attributes = [
-    ("vehicle.bicycle", "vehicle_state.parked"),
-    ("vehicle.bicycle", "cycle_state.without_rider"),
-    ("vehicle.bicycle", "motorcycle_state.without_rider"),
-    ("vehicle.motorcycle", "vehicle_state.parked"),
-    ("vehicle.motorcycle", "cycle_state.without_rider"),
-    ("vehicle.motorcycle", "motorcycle_state.without_rider"),
-    ("bicycle", "vehicle_state.parked"),
-    ("bicycle", "cycle_state.without_rider"),
-    ("bicycle", "motorcycle_state.without_rider"),
-    ("motorcycle", "vehicle_state.parked"),
-    ("motorcycle", "cycle_state.without_rider"),
-    ("motorcycle", "motorcycle_state.without_rider"),
-]
+filter_attributes = []
+# filter_attributes = [
+#     ("vehicle.bicycle", "vehicle_state.parked"),
+#     ("vehicle.bicycle", "cycle_state.without_rider"),
+#     ("vehicle.bicycle", "motorcycle_state.without_rider"),
+#     ("vehicle.motorcycle", "vehicle_state.parked"),
+#     ("vehicle.motorcycle", "cycle_state.without_rider"),
+#     ("vehicle.motorcycle", "motorcycle_state.without_rider"),
+#     ("bicycle", "vehicle_state.parked"),
+#     ("bicycle", "cycle_state.without_rider"),
+#     ("bicycle", "motorcycle_state.without_rider"),
+#     ("motorcycle", "vehicle_state.parked"),
+#     ("motorcycle", "cycle_state.without_rider"),
+#     ("motorcycle", "motorcycle_state.without_rider"),
+# ]
 
 evaluator_metric_configs = dict(
     evaluation_task="detection",

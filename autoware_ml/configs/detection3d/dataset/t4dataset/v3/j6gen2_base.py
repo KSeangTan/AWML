@@ -141,6 +141,8 @@ camera_panels = [
     "data/CAM_BACK_RIGHT",
 ]
 
+filter_attributes = []
+
 evaluator_metric_configs = dict(
     evaluation_task="detection",
     target_labels=class_names,
