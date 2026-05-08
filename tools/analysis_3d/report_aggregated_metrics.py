@@ -30,53 +30,8 @@ from pathlib import Path
 json_files: list[tuple[str, str, str]] = [
     (
         "BEVFusion-LiDAR",
-        "base/2.6.0",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/base/evaluation/j6gen2/20260414_015859/testing/j6gen2/aggregated_metrics.json",
-    ),
-    (
-        "BEVFusion-LiDAR",
-        "base/2.6.0",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/base/evaluation/jpntaxi_gen2/20260414_052656/testing/jpntaxi_gen2/aggregated_metrics.json",
-    ),
-    (
-        "BEVFusion-LiDAR",
-        "base/2.6.0",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/base/evaluation/base/20260414_110622/testing/base/aggregated_metrics.json",
-    ),
-    (
-        "BEVFusion-LiDAR",
-        "base/2.6.0",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/base/evaluation/j6gen2_base/20260413_223816/testing/j6gen2_base/aggregated_metrics.json",
-    ),
-    (
-        "BEVFusion-LiDAR",
-        "base/2.6.0",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/base/evaluation/largebus/20260414_043334/testing/largebus/aggregated_metrics.json",
-    ),
-    (
-        "BEVFusion-LiDAR",
-        "j6gen2_base/2.6.1",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/j6gen2_base/evaluation/largebus/20260415_145838/testing/largebus/aggregated_metrics.json",
-    ),
-    (
-        "BEVFusion-LiDAR",
-        "j6gen2_base/2.6.1",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/j6gen2_base/evaluation/j6gen2/20260415_154546/testing/j6gen2/aggregated_metrics.json",
-    ),
-    (
-        "BEVFusion-LiDAR",
-        "j6gen2_base/2.6.1",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_6_0/j6gen2_base/evaluation/j6gen2_base/20260415_181748/testing/j6gen2_base/aggregated_metrics.json",
-    ),
-    (
-        "BEVFusion-LiDAR",
         "base/2.7.0",
         "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/base/evaluation/j6gen2/20260418_194843/testing/j6gen2/aggregated_metrics.json",
-    ),
-    (
-        "BEVFusion-LiDAR",
-        "base/2.7.0",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/base/evaluation/jpntaxi_gen2/20260418_233555/testing/jpntaxi_gen2/aggregated_metrics.json",
     ),
     (
         "BEVFusion-LiDAR",
@@ -87,11 +42,6 @@ json_files: list[tuple[str, str, str]] = [
         "BEVFusion-LiDAR",
         "base/2.7.0",
         "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/base/evaluation/j6gen2_base/20260418_162713/testing/j6gen2_base/aggregated_metrics.json",
-    ),
-    (
-        "BEVFusion-LiDAR",
-        "base/2.7.0",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/base/evaluation/base/20260419_051045/testing/base/aggregated_metrics.json",
     ),
     (
         "BEVFusion-LiDAR",
@@ -110,8 +60,18 @@ json_files: list[tuple[str, str, str]] = [
     ),
     (
         "BEVFusion-LiDAR",
-        "jpntaxi_base/2.7.1",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/jpntaxi_base/evaluation/jpntaxi_gen2/20260418_084904/testing/jpntaxi_gen2/aggregated_metrics.json",
+        "j6gen2_base/2.7.2",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_2/j6gen2_base/evaluation/j6gen2/20260419_160639/testing/j6gen2/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "j6gen2_base/2.7.2",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_2/j6gen2_base/evaluation/j6gen2_base/20260419_184031/testing/j6gen2_base/aggregated_metrics.json",
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "j6gen2_base/2.7.2",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_2/j6gen2_base/evaluation/largebus/20260419_151837/testing/largebus/aggregated_metrics.json",
     ),
 ]
 
