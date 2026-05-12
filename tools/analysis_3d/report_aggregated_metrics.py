@@ -61,17 +61,17 @@ json_files: list[tuple[str, str, str]] = [
     (
         "BEVFusion-LiDAR",
         "j6gen2_base/2.7.2",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_2/j6gen2_base/evaluation/j6gen2/20260419_160639/testing/j6gen2/aggregated_metrics.json",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_2/j6gen2_base/evaluation/largebus/20260507_110228/testing/largebus/aggregated_metrics.json",
     ),
     (
         "BEVFusion-LiDAR",
         "j6gen2_base/2.7.2",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_2/j6gen2_base/evaluation/j6gen2_base/20260419_184031/testing/j6gen2_base/aggregated_metrics.json",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_2/j6gen2_base/evaluation/j6gen2_base/20260507_142710/testing/j6gen2_base/aggregated_metrics.json",
     ),
     (
         "BEVFusion-LiDAR",
         "j6gen2_base/2.7.2",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_2/j6gen2_base/evaluation/largebus/20260419_151837/testing/largebus/aggregated_metrics.json",
+        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_2/j6gen2_base/evaluation/j6gen2/20260507_114726/testing/j6gen2/aggregated_metrics.json",
     ),
 ]
 
@@ -109,11 +109,11 @@ def _split_range_key(range_key: str) -> tuple[str, str]:
 
 def _extract_label_ap(
     label_metrics: dict,
-    label: str,
+    metric_label: str,
     metric_type: str,
 ) -> float | None:
     """Compute the mean AP across distance thresholds for a label and metric type."""
-    pattern = re.compile(rf"T4MetricV2_label/{re.escape(label)}_AP_{re.escape(metric_type)}_[\d.]+$")
+    pattern = re.compile(rf"T4MetricV2_label/{re.escape(metric_label)}_AP_{re.escape(metric_type)}_[\d.]+$")
     values = [v for k, v in label_metrics.items() if pattern.match(k)]
     if not values:
         return None
@@ -122,11 +122,11 @@ def _extract_label_ap(
 
 def _extract_label_aph(
     label_metrics: dict,
-    label: str,
+    metric_label: str,
     metric_type: str,
 ) -> float | None:
     """Compute the mean APH across distance thresholds for a label and metric type."""
-    pattern = re.compile(rf"T4MetricV2_label/{re.escape(label)}_APH_{re.escape(metric_type)}_[\d.]+$")
+    pattern = re.compile(rf"T4MetricV2_label/{re.escape(metric_label)}_APH_{re.escape(metric_type)}_[\d.]+$")
     values = [v for k, v in label_metrics.items() if pattern.match(k)]
     if not values:
         return None
@@ -135,9 +135,9 @@ def _extract_label_aph(
 
 def _extract_label_gts(
     metadata_label: dict,
-    label: str,
+    metric_label: str,
 ) -> int | None:
-    return metadata_label.get(f"metadata_label/test_{label}_num_ground_truths")
+    return metadata_label.get(f"metadata_label/test_{metric_label}_num_ground_truths")
 
 
 def _fmt(val: float | None, decimals: int = 4) -> str:
@@ -160,7 +160,7 @@ THRESHOLDS = {
 
 def _get_per_threshold(
     label_metrics: dict,
-    label: str,
+    metric_label: str,
     metric_type: str,
     metric_name: str,
 ) -> list[float | None]:
@@ -168,9 +168,42 @@ def _get_per_threshold(
     thresholds = THRESHOLDS.get(metric_type, [])
     values: list[float | None] = []
     for t in thresholds:
-        key = f"T4MetricV2_label/{label}_{metric_name}_{metric_type}_{t}"
+        key = f"T4MetricV2_label/{metric_label}_{metric_name}_{metric_type}_{t}"
         values.append(label_metrics.get(key))
     return values
+
+
+def _infer_metric_label(display_label: str, label_metrics: dict) -> str:
+    """Infer the metric label used in metric keys for a given display label.
+
+    Some aggregated_metrics.json files group metrics under a friendly label key
+    (e.g. "traffic") while the actual metric keys use a different label
+    (e.g. "traffic_cone"). We infer the real label by inspecting the inner keys.
+    """
+    # Example key:
+    #   T4MetricV2_label/traffic_cone_AP_center_distance_bev_0.5
+    pat = re.compile(
+        r"^T4MetricV2_label/(?P<label>.+?)_(AP|APH|max-f1score|optimal-confidence|optimal-recall|optimal-precision)_.+$"
+    )
+    for k in label_metrics.keys():
+        m = pat.match(k)
+        if m:
+            return m.group("label")
+    return display_label
+
+
+def _build_metric_label_index(entry: dict) -> dict[str, tuple[str, dict]]:
+    """Map metric_label -> (bucket_label, label_metrics_dict) for one entry.
+
+    aggregated_metrics.json sometimes stores a bucket label (e.g. "traffic")
+    whose inner metric keys use a different label (e.g. "traffic_cone").
+    This index lets us use the true metric label as the display/canonical label.
+    """
+    out: dict[str, tuple[str, dict]] = {}
+    for bucket_label, lm in entry.get("label_metrics", {}).items():
+        metric_label = _infer_metric_label(bucket_label, lm)
+        out.setdefault(metric_label, (bucket_label, lm))
+    return out
 
 
 def _fmt_threshold_vals(vals: list[float | None], decimals: int = 3) -> str:
@@ -262,24 +295,27 @@ def build_location_report(
 
         all_labels: list[str] = []
         for entry in entries:
-            for label in entry["label_metrics"]:
-                if label not in all_labels:
-                    all_labels.append(label)
+            idx = _build_metric_label_index(entry)
+            for metric_label in idx.keys():
+                if metric_label not in all_labels:
+                    all_labels.append(metric_label)
 
         # Build header: label columns show name + GT count
         label_gts: dict[str, int] = {}
-        for label in all_labels:
+        for metric_label in all_labels:
             for entry in entries:
-                ml = entry["metadata_label"].get(label, {})
-                g = ml.get(f"metadata_label/test_{label}_num_ground_truths")
+                idx = _build_metric_label_index(entry)
+                bucket_label = idx.get(metric_label, (metric_label, {}))[0]
+                ml = entry["metadata_label"].get(metric_label) or entry["metadata_label"].get(bucket_label) or {}
+                g = ml.get(f"metadata_label/test_{metric_label}_num_ground_truths")
                 if g is not None:
-                    label_gts[label] = g
+                    label_gts[metric_label] = g
                     break
 
         header_cols = ["Model version", "mAP", "mAPH"]
-        for label in all_labels:
-            gts = label_gts.get(label, 0)
-            header_cols.append(f"{label}<br>({gts:,})")
+        for metric_label in all_labels:
+            gts = label_gts.get(metric_label, 0)
+            header_cols.append(f"{metric_label}<br>({gts:,})")
         lines.append("| " + " | ".join(header_cols) + " |")
 
         sep_cols = [":----", "---:", "---:"] + ["---:"] * len(all_labels)
@@ -293,9 +329,10 @@ def build_location_report(
             mAPH_val = _fmt(m.get(mAPH_key))
 
             cells = [f"{model_id}", mAP_val, mAPH_val]
-            for label in all_labels:
-                lm = entry["label_metrics"].get(label, {})
-                ap = _extract_label_ap(lm, label, metric_type)
+            idx = _build_metric_label_index(entry)
+            for metric_label in all_labels:
+                lm = idx.get(metric_label, (metric_label, {}))[1]
+                ap = _extract_label_ap(lm, metric_label, metric_type)
                 cells.append(_fmt(ap))
             lines.append("| " + " | ".join(cells) + " |")
         lines.append("")
@@ -319,20 +356,21 @@ def build_location_report(
             m = entry["metrics"]
             mAP_val = _fmt(m.get(mAP_key))
 
-            for label in all_labels:
-                lm = entry["label_metrics"].get(label, {})
-                ml = entry["metadata_label"].get(label, {})
-                gts = _extract_label_gts(ml, label)
+            idx = _build_metric_label_index(entry)
+            for metric_label in all_labels:
+                bucket_label, lm = idx.get(metric_label, (metric_label, {}))
+                ml = entry["metadata_label"].get(metric_label) or entry["metadata_label"].get(bucket_label) or {}
+                gts = _extract_label_gts(ml, metric_label)
 
-                ap_vals = _get_per_threshold(lm, label, metric_type, "AP")
-                f1_vals = _get_per_threshold(lm, label, metric_type, "max-f1score")
-                conf_vals = _get_per_threshold(lm, label, metric_type, "optimal-confidence")
+                ap_vals = _get_per_threshold(lm, metric_label, metric_type, "AP")
+                f1_vals = _get_per_threshold(lm, metric_label, metric_type, "max-f1score")
+                conf_vals = _get_per_threshold(lm, metric_label, metric_type, "optimal-confidence")
 
                 valid_aps = [v for v in ap_vals if v is not None]
                 label_map = _fmt(sum(valid_aps) / len(valid_aps)) if valid_aps else "N/A"
 
                 lines.append(
-                    f"| {label} "
+                    f"| {metric_label} "
                     f"| {_fmt_int(gts)} "
                     f"| {label_map} "
                     f"| {_fmt_threshold_vals(ap_vals)} "
@@ -352,12 +390,14 @@ def build_location_report(
 
 def _get_label_gts(
     entries: list[dict],
-    label: str,
+    metric_label: str,
 ) -> int:
-    """Sum GTs for a label across entries (use first model's value since GTs are shared)."""
+    """Sum GTs for a metric label across entries (use first model's value since GTs are shared)."""
     for entry in entries:
-        ml = entry["metadata_label"].get(label, {})
-        gts = ml.get(f"metadata_label/test_{label}_num_ground_truths")
+        idx = _build_metric_label_index(entry)
+        bucket_label = idx.get(metric_label, (metric_label, {}))[0]
+        ml = entry["metadata_label"].get(metric_label) or entry["metadata_label"].get(bucket_label) or {}
+        gts = ml.get(f"metadata_label/test_{metric_label}_num_ground_truths")
         if gts is not None:
             return gts
     return 0
@@ -399,9 +439,10 @@ def generate_location_plot(
 
         all_labels: list[str] = []
         for entry in entries:
-            for label in entry["label_metrics"]:
-                if label not in all_labels:
-                    all_labels.append(label)
+            idx = _build_metric_label_index(entry)
+            for metric_label in idx.keys():
+                if metric_label not in all_labels:
+                    all_labels.append(metric_label)
 
         label_gts = {lb: _get_label_gts(entries, lb) for lb in all_labels}
         total_gts = _get_total_gts(entries)
@@ -426,14 +467,15 @@ def generate_location_plot(
 
         for model_idx, mid in enumerate(model_ids):
             values = []
-            for label in all_labels:
+            for metric_label in all_labels:
                 ap_vals = []
                 for entry in entries:
                     eid = f"{entry['model_name']}\n{entry['model_version']}"
                     if eid != mid:
                         continue
-                    lm = entry["label_metrics"].get(label, {})
-                    ap = _extract_label_ap(lm, label, metric_type)
+                    idx = _build_metric_label_index(entry)
+                    lm = idx.get(metric_label, (metric_label, {}))[1]
+                    ap = _extract_label_ap(lm, metric_label, metric_type)
                     if ap is not None:
                         ap_vals.append(ap)
                 values.append(ap_vals[0] if ap_vals else 0.0)
