@@ -29,19 +29,19 @@ from pathlib import Path
 # Each entry: (model_name, model_version, json_file_path)
 json_files: list[tuple[str, str, str]] = [
     (
-        "BEVFusion-LiDAR",
-        "base/2.7.0",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/base/evaluation/j6gen2/20260418_194843/testing/j6gen2/aggregated_metrics.json",
+        "CenterPoint",
+        "j6gen2_base/2.6.1",
+        "/home/kokseangtantier4jp/Downloads/centerpoint_2_6_1/j6gen2_base/second_secfpn_8xb16_121m_j6gen2_base_amp_rfs_t4metric_v2/20260225_000002/testing/largebus/aggregated_metrics.json",
     ),
     (
-        "BEVFusion-LiDAR",
-        "base/2.7.0",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/base/evaluation/largebus/20260418_223743/testing/largebus/aggregated_metrics.json",
+        "CenterPoint",
+        "j6gen2_base/2.6.1",
+        "/home/kokseangtantier4jp/Downloads/centerpoint_2_6_1/j6gen2_base/second_secfpn_8xb16_121m_j6gen2_base_amp_rfs_t4metric_v2/20260225_002953/testing/j6gen2/aggregated_metrics.json",
     ),
     (
-        "BEVFusion-LiDAR",
-        "base/2.7.0",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/base/evaluation/j6gen2_base/20260418_162713/testing/j6gen2_base/aggregated_metrics.json",
+        "CenterPoint",
+        "j6gen2_base/2.6.1",
+        "/home/kokseangtantier4jp/Downloads/centerpoint_2_6_1/j6gen2_base/second_secfpn_8xb16_121m_j6gen2_base_amp_rfs_t4metric_v2/20260225_021226/testing/j6gen2_base/aggregated_metrics.json",
     ),
     (
         "BEVFusion-LiDAR",
@@ -57,21 +57,6 @@ json_files: list[tuple[str, str, str]] = [
         "BEVFusion-LiDAR",
         "j6gen2_base/2.7.1",
         "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_0/j6gen2_base/evaluation/largebus/20260419_151837/testing/largebus/aggregated_metrics.json",
-    ),
-    (
-        "BEVFusion-LiDAR",
-        "j6gen2_base/2.7.2",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_2/j6gen2_base/evaluation/largebus/20260507_110228/testing/largebus/aggregated_metrics.json",
-    ),
-    (
-        "BEVFusion-LiDAR",
-        "j6gen2_base/2.7.2",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_2/j6gen2_base/evaluation/j6gen2_base/20260507_142710/testing/j6gen2_base/aggregated_metrics.json",
-    ),
-    (
-        "BEVFusion-LiDAR",
-        "j6gen2_base/2.7.2",
-        "/home/kokseangtantier4jp/Downloads/bevfusion_lidar_2_7_2/j6gen2_base/evaluation/j6gen2/20260507_114726/testing/j6gen2/aggregated_metrics.json",
     ),
 ]
 
