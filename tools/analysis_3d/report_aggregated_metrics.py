@@ -2,7 +2,7 @@
 
 Takes a list of (model_name, model_version, json_path) entries and produces,
 for each location/vehicle_type, a subfolder containing:
-  - A markdown report with per-label AP, APH, and GT counts.
+  - A markdown report with per-label AP, APH, GT counts, TP error tables, and mean TP error tables.
   - Grouped bar-chart PNG figures (one per metric type).
   - Stacked bar charts for per-class TP errors (default, medium, optimal; one PNG each).
   - Grouped bar chart for mean-tp-error (default / medium / optimal columns; rows by range).
@@ -134,6 +134,33 @@ def _tp_error_key_fragment(tp_error_variant: str, tp_error_type: str) -> str:
     return f"tp-error_{suffix}"
 
 
+def _num_match_key_fragment(tp_error_variant: str | None) -> str:
+    """JSON key fragment for num-match; None = summary table (plain num-match)."""
+    if tp_error_variant is None:
+        return "num-match"
+    if tp_error_variant == "medium":
+        return "medium-recall-num-match"
+    if tp_error_variant == "optimal":
+        return "optimal-num-match"
+    return "min-recall-num-match"
+
+
+def _num_match_column_label(_tp_error_variant: str, thresh_str: str) -> str:
+    """Markdown column header (always num_match; JSON lookup uses hyphenated keys)."""
+    return f"{NUM_MATCH_COLUMN_NAME}@{thresh_str}"
+
+
+def _get_per_threshold_num_match(
+    label_metrics: dict,
+    metric_label: str,
+    metric_type: str,
+    tp_error_variant: str | None = None,
+) -> list[float | None]:
+    thresholds = THRESHOLDS.get(metric_type, [])
+    fragment = _num_match_key_fragment(tp_error_variant)
+    return [label_metrics.get(f"T4MetricV2_label/{metric_label}_{fragment}_{metric_type}_{t}") for t in thresholds]
+
+
 def _extract_label_tp_error_mean(
     label_metrics: dict,
     metric_label: str,
@@ -190,6 +217,8 @@ TP_ERROR_CHART_VARIANTS: tuple[tuple[str, str], ...] = (
     ("medium", "medium"),
     ("optimal", "optimal"),
 )
+# Markdown column header only (JSON keys remain hyphenated, e.g. num-match).
+NUM_MATCH_COLUMN_NAME = "num_match"
 
 
 def _tp_error_variant_display_title(tp_variant: str, variant_label: str, *, multiline: bool = False) -> str:
@@ -238,6 +267,23 @@ def _get_per_threshold(
     return values
 
 
+def _get_per_threshold_tp_error(
+    label_metrics: dict,
+    metric_label: str,
+    metric_type: str,
+    tp_error_type: str,
+    tp_error_variant: str = "",
+) -> list[float | None]:
+    """Return TP error values at each distance threshold for a label and error type."""
+    thresholds = THRESHOLDS.get(metric_type, [])
+    fragment = _tp_error_key_fragment(tp_error_variant, tp_error_type)
+    values: list[float | None] = []
+    for t in thresholds:
+        key = f"T4MetricV2_label/{metric_label}_{fragment}_{metric_type}_{t}"
+        values.append(label_metrics.get(key))
+    return values
+
+
 def _infer_metric_label(display_label: str, label_metrics: dict) -> str:
     """Infer the metric label used in metric keys for a given display label.
 
@@ -280,8 +326,72 @@ def _fmt_threshold_vals(vals: list[float | None], decimals: int = 3) -> str:
     return " / ".join(parts)
 
 
+def _fmt_threshold_int_vals(vals: list[float | None]) -> str:
+    parts = []
+    for v in vals:
+        if v is None:
+            parts.append("N/A")
+        else:
+            parts.append(f"{int(v):,}")
+    return " / ".join(parts)
+
+
+def _markdown_row(cells: list[str]) -> str:
+    return "| " + " | ".join(str(c) for c in cells) + " |"
+
+
+def _tp_error_header_cells(thresh_str: str) -> list[str]:
+    return [f"{tp}@{thresh_str}" for tp in TP_ERROR_TYPES]
+
+
+def _tp_error_cells(
+    label_metrics: dict,
+    metric_label: str,
+    metric_type: str,
+    tp_error_variant: str,
+) -> list[str]:
+    return [
+        _fmt_threshold_vals(
+            _get_per_threshold_tp_error(label_metrics, metric_label, metric_type, tp, tp_error_variant)
+        )
+        for tp in TP_ERROR_TYPES
+    ]
+
+
 def _safe_folder_name(loc_vehicle: str) -> str:
     return loc_vehicle.replace("/", "_")
+
+
+def _model_ids_from_entries(entries: list[dict]) -> list[str]:
+    """Chart-style model ids (name + newline + version), preserving entry order."""
+    model_ids: list[str] = []
+    for entry in entries:
+        mid = f"{entry['model_name']}\n{entry['model_version']}"
+        if mid not in model_ids:
+            model_ids.append(mid)
+    return model_ids
+
+
+def _chart_model_id_to_display(mid: str) -> str:
+    return mid.replace("\n", " ")
+
+
+def _append_plot_links(lines: list[str], metric_type: str) -> None:
+    """Relative markdown image links for generated PNG figures."""
+    lines.append("## Figures")
+    lines.append("")
+    lines.append(f"### AP / mAP / mAPH / NDS (`{metric_type}`)")
+    lines.append(f"![AP chart](ap_{metric_type}.png)")
+    lines.append("")
+    for tp_variant, variant_label in TP_ERROR_CHART_VARIANTS:
+        display = _tp_error_variant_display_title(tp_variant, variant_label)
+        suffix = f"_{tp_variant}" if tp_variant else ""
+        lines.append(f"### Per-class TP error — {display}")
+        lines.append(f"![TP error {display}](tp_error_bar_{metric_type}{suffix}.png)")
+        lines.append("")
+    lines.append(f"### Mean TP error (`{metric_type}`)")
+    lines.append(f"![Mean TP error](mean_tp_error_{metric_type}.png)")
+    lines.append("")
 
 
 # ── Data loading ─────────────────────────────────────────────────────────────
@@ -336,6 +446,26 @@ def _load_data(
     return groups, metric_ranges_seen, loc_vehicles_seen
 
 
+def _dedupe_entries_by_model(entries: list[dict]) -> list[dict]:
+    """Keep one entry per (model_name, model_version); first json file in list wins."""
+    seen: dict[tuple[str, str], dict] = {}
+    order: list[tuple[str, str]] = []
+    for entry in entries:
+        key = (entry["model_name"], entry["model_version"])
+        if key not in seen:
+            order.append(key)
+            seen[key] = entry
+    return [seen[k] for k in order]
+
+
+def _group_entries(
+    groups: dict[tuple[str, str], list[dict]],
+    metric_range: str,
+    loc_vehicle: str,
+) -> list[dict]:
+    return _dedupe_entries_by_model(groups.get((metric_range, loc_vehicle), []))
+
+
 # ── Markdown report (per location/vehicle) ───────────────────────────────────
 
 
@@ -352,10 +482,9 @@ def build_location_report(
     lines.append("")
 
     for metric_range in sorted(metric_ranges):
-        key = (metric_range, loc_vehicle)
-        if key not in groups:
+        if (metric_range, loc_vehicle) not in groups:
             continue
-        entries = groups[key]
+        entries = _group_entries(groups, metric_range, loc_vehicle)
 
         lines.append(f"## {metric_range}")
         lines.append("")
@@ -408,17 +537,23 @@ def build_location_report(
         thresholds = THRESHOLDS.get(metric_type, [])
         thresh_str = "/".join(thresholds)
 
+        detail_header = [
+            "class_name",
+            "GTs",
+            _num_match_column_label(None, thresh_str),
+            "mAP",
+            f"AP@{thresh_str}",
+            f"max_f1@{thresh_str}",
+            f"optimal_conf@{thresh_str}",
+        ]
+        detail_sep = [":----", "---:", ":----", ":----", ":----", ":----", ":----"]
+
         for entry in entries:
             model_id = f"{entry['model_name']} {entry['model_version']}"
             lines.append(f"**{model_id}**")
             lines.append("")
-            lines.append(
-                f"| class_name | GTs | mAP "
-                f"| AP@{thresh_str} "
-                f"| max_f1@{thresh_str} "
-                f"| optimal_conf@{thresh_str} |"
-            )
-            lines.append("| :---- | ---: | ---: | :---- | :---- | :---- |")
+            lines.append(_markdown_row(detail_header))
+            lines.append(_markdown_row(detail_sep))
 
             m = entry["metrics"]
             mAP_val = _fmt(m.get(_overall_metric_key("mAP", metric_type)))
@@ -430,6 +565,7 @@ def build_location_report(
                 gts = _extract_label_gts(ml, metric_label)
 
                 ap_vals = _get_per_threshold(lm, metric_label, metric_type, "AP")
+                num_match_vals = _get_per_threshold_num_match(lm, metric_label, metric_type, None)
                 f1_vals = _get_per_threshold(lm, metric_label, metric_type, "max-f1score")
                 conf_vals = _get_per_threshold(lm, metric_label, metric_type, "optimal-confidence")
 
@@ -437,18 +573,41 @@ def build_location_report(
                 label_map = _fmt(sum(valid_aps) / len(valid_aps)) if valid_aps else "N/A"
 
                 lines.append(
-                    f"| {metric_label} "
-                    f"| {_fmt_int(gts)} "
-                    f"| {label_map} "
-                    f"| {_fmt_threshold_vals(ap_vals)} "
-                    f"| {_fmt_threshold_vals(f1_vals)} "
-                    f"| {_fmt_threshold_vals(conf_vals)} |"
+                    _markdown_row(
+                        [
+                            metric_label,
+                            _fmt_int(gts),
+                            _fmt_threshold_int_vals(num_match_vals),
+                            label_map,
+                            _fmt_threshold_vals(ap_vals),
+                            _fmt_threshold_vals(f1_vals),
+                            _fmt_threshold_vals(conf_vals),
+                        ]
+                    )
                 )
 
             total_gts = entry["metadata"].get("metadata/test_total_num_ground_truths")
-            lines.append(f"| **ALL** " f"| {_fmt_int(total_gts)} " f"| {mAP_val} " f"| — | — | — |")
+            lines.append(
+                _markdown_row(
+                    [
+                        "**ALL**",
+                        _fmt_int(total_gts),
+                        "—",
+                        mAP_val,
+                        "—",
+                        "—",
+                        "—",
+                    ]
+                )
+            )
             lines.append("")
+            _append_model_mean_tp_error_table(lines, entry, metric_type)
+            for tp_variant, variant_label in (("", "default"), ("medium", "medium"), ("optimal", "optimal")):
+                _append_model_tp_error_variant_table(
+                    lines, entry, all_labels, metric_type, tp_variant, variant_label, thresh_str
+                )
 
+    _append_plot_links(lines, metric_type)
     return "\n".join(lines)
 
 
@@ -511,7 +670,7 @@ def generate_location_plot(
 
     for row, metric_range in enumerate(ranges_with_data):
         ax = axes[row, 0]
-        entries = groups[(metric_range, loc_vehicle)]
+        entries = _group_entries(groups, metric_range, loc_vehicle)
 
         all_labels = _collect_class_labels_from_entries(entries)
 
@@ -737,7 +896,7 @@ def generate_tp_error_bar_plot(
 
     for row, metric_range in enumerate(ranges_with_data):
         ax = axes[row, 0]
-        entries = groups[(metric_range, loc_vehicle)]
+        entries = _group_entries(groups, metric_range, loc_vehicle)
         model_ids: list[str] = []
         for entry in entries:
             mid = f"{entry['model_name']}\n{entry['model_version']}"
@@ -870,6 +1029,57 @@ def _collect_mean_tp_error_by_model(
     return raw_by_model
 
 
+def _append_model_tp_error_variant_table(
+    lines: list[str],
+    entry: dict,
+    all_labels: list[str],
+    metric_type: str,
+    tp_error_variant: str,
+    variant_label: str,
+    thresh_str: str,
+) -> None:
+    """Per-class TP error table for medium or optimal variant."""
+    display = _tp_error_variant_display_title(tp_error_variant, variant_label)
+    lines.append(f"**TP error — {display}**")
+    lines.append("")
+    num_match_col = _num_match_column_label(tp_error_variant, thresh_str)
+    lines.append(_markdown_row(["class_name", num_match_col, *_tp_error_header_cells(thresh_str)]))
+    lines.append(_markdown_row([":----", ":----", *[":----"] * len(TP_ERROR_TYPES)]))
+
+    idx = _build_metric_label_index(entry)
+    for metric_label in all_labels:
+        lm = idx.get(metric_label, (metric_label, {}))[1]
+        num_match_vals = _get_per_threshold_num_match(lm, metric_label, metric_type, tp_error_variant)
+        lines.append(
+            _markdown_row(
+                [
+                    metric_label,
+                    _fmt_threshold_int_vals(num_match_vals),
+                    *_tp_error_cells(lm, metric_label, metric_type, tp_error_variant),
+                ]
+            )
+        )
+    lines.append("")
+
+
+def _append_model_mean_tp_error_table(lines: list[str], entry: dict, metric_type: str) -> None:
+    """Mean TP error table (default / medium / optimal) below one model's class detail table."""
+    mid = f"{entry['model_name']}\n{entry['model_version']}"
+    lines.append("**Mean TP error**")
+    lines.append("")
+    lines.append(_markdown_row(["Variant", *MEAN_TP_ERROR_TYPES]))
+    lines.append(_markdown_row([":----", *["---:"] * len(MEAN_TP_ERROR_TYPES)]))
+    for tp_variant, variant_label in TP_ERROR_CHART_VARIANTS:
+        display = _tp_error_variant_display_title(tp_variant, variant_label)
+        raw_by_model = _collect_mean_tp_error_by_model([entry], metric_type, [mid], tp_variant)
+        if mid in raw_by_model:
+            vals = [_fmt(v) for v in raw_by_model[mid]]
+        else:
+            vals = ["N/A"] * len(MEAN_TP_ERROR_TYPES)
+        lines.append(_markdown_row([display, *vals]))
+    lines.append("")
+
+
 def _plot_mean_tp_error_bar_cell(
     ax,
     raw_by_model: dict[str, list[float | None]],
@@ -965,7 +1175,7 @@ def generate_mean_tp_error_bar_plot(
     legend_labels = None
 
     for row, metric_range in enumerate(ranges_with_data):
-        entries = groups[(metric_range, loc_vehicle)]
+        entries = _group_entries(groups, metric_range, loc_vehicle)
         model_ids: list[str] = []
         for entry in entries:
             mid = f"{entry['model_name']}\n{entry['model_version']}"
