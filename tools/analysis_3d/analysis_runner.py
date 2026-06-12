@@ -11,6 +11,7 @@ from tools.analysis_3d.callbacks.callback_interface import AnalysisCallbackInter
 from tools.analysis_3d.callbacks.category import CategoryAnalysisCallback
 from tools.analysis_3d.callbacks.category_attribute import CategoryAttributeAnalysisCallback
 from tools.analysis_3d.callbacks.voxel_num import VoxelNumAnalysisCallback
+from tools.analysis_3d.callbacks.category_distance import CategoryDistancePointCountAnalysisCallback
 from tools.analysis_3d.data_classes import (
     AnalysisData,
     DatasetSplitName,
@@ -55,44 +56,48 @@ class AnalysisRunner:
         # Default callbacks to generate analyses
         # TODO (KokSeang): Configure through CLI
         self.analysis_callbacks: List[AnalysisCallbackInterface] = [
-            VoxelNumAnalysisCallback(
-                data_root_path=Path(self.data_root_path),
-                out_path=self.out_path,
-                pc_ranges=[-121.60, -121.60, -3.0, 121.60, 121.60, 5.0],
-                voxel_sizes=[0.32, 0.32, 8.0],
-                point_thresholds=[1, 5, 10],
-                analysis_dir="voxel_nums_121_032",
-                bins=50,
-                sweeps_num=1,
-            ),
-            VoxelNumAnalysisCallback(
-                data_root_path=Path(self.data_root_path),
-                out_path=self.out_path,
-                pc_ranges=[-121.60, -121.60, -3.0, 121.60, 121.60, 5.0],
-                voxel_sizes=[0.20, 0.20, 8.0],
-                point_thresholds=[1, 5, 10],
-                analysis_dir="voxel_nums_121_020",
-                bins=100,
-            ),
-            CategoryAnalysisCallback(out_path=self.out_path, remapping_classes=self.remapping_classes),
-            CategoryAttributeAnalysisCallback(
-                out_path=self.out_path, category_name="vehicle.motorcycle", analysis_dir="vehicle_motorcycle_attr"
-            ),
-            CategoryAttributeAnalysisCallback(
-                out_path=self.out_path, category_name="vehicle.bicycle", analysis_dir="vehicle_bicycle_attr"
-            ),
-            CategoryAttributeAnalysisCallback(
-                out_path=self.out_path, category_name="bicycle", analysis_dir="bicycle_attr"
-            ),
-            CategoryAttributeAnalysisCallback(
-                out_path=self.out_path, category_name="motorcycle", analysis_dir="motorcycle_attr"
-            ),
-            CategoryAttributeAnalysisCallback(
-                out_path=self.out_path,
-                category_name="bicycle",
-                analysis_dir="remapping_bicycle_attr",
+            CategoryDistancePointCountAnalysisCallback(
+                out_path=self.out_path, 
                 remapping_classes=self.remapping_classes,
-            ),
+            )
+            # VoxelNumAnalysisCallback(
+            #     data_root_path=Path(self.data_root_path),
+            #     out_path=self.out_path,
+            #     pc_ranges=[-121.60, -121.60, -3.0, 121.60, 121.60, 5.0],
+            #     voxel_sizes=[0.32, 0.32, 8.0],
+            #     point_thresholds=[1, 5, 10],
+            #     analysis_dir="voxel_nums_121_032",
+            #     bins=50,
+            #     sweeps_num=1,
+            # ),
+            # VoxelNumAnalysisCallback(
+            #     data_root_path=Path(self.data_root_path),
+            #     out_path=self.out_path,
+            #     pc_ranges=[-121.60, -121.60, -3.0, 121.60, 121.60, 5.0],
+            #     voxel_sizes=[0.20, 0.20, 8.0],
+            #     point_thresholds=[1, 5, 10],
+            #     analysis_dir="voxel_nums_121_020",
+            #     bins=100,
+            # ),
+            # CategoryAnalysisCallback(out_path=self.out_path, remapping_classes=self.remapping_classes),
+            # CategoryAttributeAnalysisCallback(
+            #     out_path=self.out_path, category_name="vehicle.motorcycle", analysis_dir="vehicle_motorcycle_attr"
+            # ),
+            # CategoryAttributeAnalysisCallback(
+            #     out_path=self.out_path, category_name="vehicle.bicycle", analysis_dir="vehicle_bicycle_attr"
+            # ),
+            # CategoryAttributeAnalysisCallback(
+            #     out_path=self.out_path, category_name="bicycle", analysis_dir="bicycle_attr"
+            # ),
+            # CategoryAttributeAnalysisCallback(
+            #     out_path=self.out_path, category_name="motorcycle", analysis_dir="motorcycle_attr"
+            # ),
+            # CategoryAttributeAnalysisCallback(
+            #     out_path=self.out_path,
+            #     category_name="bicycle",
+            #     analysis_dir="remapping_bicycle_attr",
+            #     remapping_classes=self.remapping_classes,
+            # ),
         ]
 
     def _get_dataset_scenario_names(self, dataset_version: str) -> Dict[str, List[str]]:
@@ -165,7 +170,7 @@ class AnalysisRunner:
         """
         scenario_data = {}
         for scene_token_with_version in scene_tokens:
-            scene_token, version = scene_token_with_version.split("/")
+            scene_token, version, _, _, _ = scene_token_with_version.split("/")
             print_log(f"Creating scenario data for the scene: {scene_token}, version: {version}")
             scene_root_dir_path = get_scene_root_dir_path(
                 root_path=self.data_root_path,
