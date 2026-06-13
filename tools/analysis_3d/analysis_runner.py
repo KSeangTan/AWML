@@ -59,6 +59,7 @@ class AnalysisRunner:
             CategoryDistancePointCountAnalysisCallback(
                 out_path=self.out_path, 
                 remapping_classes=self.remapping_classes,
+                analysis_dir="category_distance_points"
             ),
             CategoryDistancePointCountAnalysisCallback(
                 out_path=self.out_path, 
@@ -66,7 +67,8 @@ class AnalysisRunner:
                 use_multisweeps=True,
                 sweeps_num=1,
                 load_dim= 5,
-                remove_close=True
+                remove_close=True,
+                analysis_dir="category_distance_points_concat"
             )
             # VoxelNumAnalysisCallback(
             #     data_root_path=Path(self.data_root_path),
@@ -152,6 +154,8 @@ class AnalysisRunner:
                 LidarSweep(
                     num_pts_feats=lidar_sweep["lidar_points"]["num_pts_feats"],
                     lidar_path=lidar_sweep["lidar_points"]["lidar_path"],
+                    lidar2ego=lidar_sweep["lidar_points"]["lidar2ego"],
+                    lidar2sensor=lidar_sweep["lidar_points"]["lidar2sensor"]
                 )
                 for lidar_sweep in lidar_sweep_info["lidar_sweeps"]
             ]

@@ -46,6 +46,8 @@ class LidarPoint:
 class LidarSweep:
     num_pts_feats: int
     lidar_path: str
+    lidar2ego: npt.NDArray[np.float64]
+    lidar2sensor: npt.NDArray[np.float64]
 
 
 @dataclass(frozen=True)
