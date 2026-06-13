@@ -63,7 +63,7 @@ class CategoryDistancePointCountAnalysisCallback(AnalysisCallbackInterface):
         """
         # Get the center of the bounding box
         # Calculate L2 distance from origin (0, 0, 0)
-        distance = np.sqrt(box.position[0] ** 2 + box.position[1] ** 2 + box.position[2] ** 2)
+        distance = np.sqrt(box.position[0] ** 2 + box.position[1] ** 2)
         return distance
 
     def _points_in_boxes(self, points: npt.NDArray[np.float32], boxes: List[object]) -> npt.NDArray[np.int64]:
@@ -170,51 +170,74 @@ class CategoryDistancePointCountAnalysisCallback(AnalysisCallbackInterface):
                 all_categories.update(category_stats.keys())
 
         all_categories = sorted(list(all_categories))
-        all_distance_ranges = sorted(list(all_distance_ranges))
+        available_distance_ranges = set(all_distance_ranges)
+        all_distance_ranges = [
+            self._get_distance_range_label(min_dist, max_dist)
+            for min_dist, max_dist in self.distance_ranges
+            if self._get_distance_range_label(min_dist, max_dist) in available_distance_ranges
+        ]
         
         if not all_categories or not all_distance_ranges:
             print_log(f"No data available for {split_name}")
             return
 
         dataset_names = sorted(list(dataset_category_distance_stats.keys()))
-        num_datasets = len(dataset_names)
         num_ranges = len(all_distance_ranges)
-        _, axes = plt.subplots(nrows=num_datasets, ncols=num_ranges, figsize=figsize, squeeze=False)
+        datasets_per_plot = 3
+        num_pages = int(np.ceil(len(dataset_names) / datasets_per_plot))
 
         x = np.arange(len(all_categories))
         total_groups = len(self.point_bins)
         bar_width = 0.8 / max(total_groups, 1)
 
-        for dataset_idx, dataset_name in enumerate(dataset_names):
-            for range_idx, distance_range in enumerate(all_distance_ranges):
-                ax = axes[dataset_idx][range_idx]
-                range_stats = dataset_category_distance_stats[dataset_name].get(distance_range, {})
+        for page_idx in range(num_pages):
+            start_idx = page_idx * datasets_per_plot
+            end_idx = min(start_idx + datasets_per_plot, len(dataset_names))
+            page_dataset_names = dataset_names[start_idx:end_idx]
 
-                for point_idx, point_bin in enumerate(self.point_bins):
-                    counts = [range_stats.get(category, {}).get(point_bin, 0) for category in all_categories]
-                    offset = (point_idx - (total_groups - 1) / 2) * bar_width
-                    ax.bar(x + offset, counts, bar_width, label=f"points={point_bin}")
+            _, axes = plt.subplots(
+                nrows=len(page_dataset_names),
+                ncols=num_ranges,
+                figsize=figsize,
+                squeeze=False,
+            )
 
-                if range_idx == 0:
-                    ax.set_ylabel(f"{dataset_name}\n{self.x_axis_label}")
-                if dataset_idx == num_datasets - 1:
-                    ax.set_xlabel(self.y_axis_label)
+            for dataset_row_idx, dataset_name in enumerate(page_dataset_names):
+                for range_idx, distance_range in enumerate(all_distance_ranges):
+                    ax = axes[dataset_row_idx][range_idx]
+                    range_stats = dataset_category_distance_stats[dataset_name].get(distance_range, {})
 
-                ax.set_title(f"{dataset_name} | {distance_range}")
-                ax.set_xticks(x)
-                ax.set_xticklabels(all_categories, rotation=35, ha="right")
+                    for point_idx, point_bin in enumerate(self.point_bins):
+                        counts = [range_stats.get(category, {}).get(point_bin, 0) for category in all_categories]
+                        offset = (point_idx - (total_groups - 1) / 2) * bar_width
+                        ax.bar(x + offset, counts, bar_width, label=f"points={point_bin}")
 
-                if dataset_idx == 0 and range_idx == num_ranges - 1:
-                    ax.legend(loc=self.legend_loc, title="Points in bbox")
+                    if range_idx == 0:
+                        ax.set_ylabel(f"{dataset_name}\n{self.x_axis_label}")
+                    if dataset_row_idx == len(page_dataset_names) - 1:
+                        ax.set_xlabel(self.y_axis_label)
 
-        plt.tight_layout()
-        analysis_file_name = self.full_output_path / self.analysis_file_name.format(split_name)
-        plt.savefig(
-            fname=analysis_file_name,
-            format="png",
-            bbox_inches="tight",
-        )
-        plt.close()
+                    ax.set_title(f"{dataset_name} | {distance_range}")
+                    ax.set_xticks(x)
+                    ax.set_xticklabels(all_categories, rotation=35, ha="right")
+
+                    if dataset_row_idx == 0 and range_idx == num_ranges - 1:
+                        ax.legend(loc=self.legend_loc, title="Points in bbox")
+
+            plt.tight_layout()
+            if num_pages == 1:
+                analysis_file_name = self.full_output_path / self.analysis_file_name.format(split_name)
+            else:
+                analysis_file_name = self.full_output_path / self.analysis_file_name.format(
+                    f"{split_name}_part{page_idx + 1}"
+                )
+
+            plt.savefig(
+                fname=analysis_file_name,
+                format="png",
+                bbox_inches="tight",
+            )
+            plt.close()
 
     def run(self, dataset_split_analysis_data: Dict[DatasetSplitName, AnalysisData]) -> None:
         """Inherited, check the superclass."""
