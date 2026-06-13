@@ -89,6 +89,7 @@ class CategoryDistancePointCountAnalysisCallback(AnalysisCallbackInterface):
         indices = box_np_ops.points_in_rbbox(
             points[:, :3],
             bboxes_3d,
+            origin=(0.5, 0.5, 0.5)
         )
         num_points_in_gt = indices.sum(0)
         return num_points_in_gt
