@@ -106,19 +106,15 @@ class CategoryDistancePointCountAnalysisCallback(AnalysisCallbackInterface):
             for idx in choices:
                 sweep: LidarSweep = sweeps[idx]
                 sweep_path = data_root_path / sweep.lidar_path
-                lidar2sensor = sweep.lidar2sensor
-                try:
-                    points_sweep = np.fromfile(sweep_path, dtype=np.float32).reshape(-1, self.load_dim)
-                    if self.remove_close:
-                        points_sweep = self._remove_close(points_sweep)
-                    points_sweep = points_sweep[:, self.use_dim]
-                    points_sweep[:, :
-                                3] = points_sweep[:, :3] @ lidar2sensor[:3, :3]
-                    points_sweep[:, :3] -= lidar2sensor[:3, 3]
-                    sweep_points_list.append(points_sweep)
-                except Exception as e:
-                    print_log(f"Failed to load sweep {sweep_path}: {e}")
-                    continue
+                lidar2sensor = np.asarray(sweep.lidar2sensor)
+                points_sweep = np.fromfile(sweep_path, dtype=np.float32).reshape(-1, self.load_dim)
+                if self.remove_close:
+                    points_sweep = self._remove_close(points_sweep)
+                points_sweep = points_sweep[:, self.use_dim]
+                points_sweep[:, :
+                            3] = points_sweep[:, :3] @ lidar2sensor[:3, :3]
+                points_sweep[:, :3] -= lidar2sensor[:3, 3]
+                sweep_points_list.append(points_sweep)
 
         return np.concatenate(sweep_points_list, axis=0)
 
