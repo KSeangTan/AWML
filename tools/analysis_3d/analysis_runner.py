@@ -59,6 +59,14 @@ class AnalysisRunner:
             CategoryDistancePointCountAnalysisCallback(
                 out_path=self.out_path, 
                 remapping_classes=self.remapping_classes,
+            ),
+            CategoryDistancePointCountAnalysisCallback(
+                out_path=self.out_path, 
+                remapping_classes=self.remapping_classes,
+                use_multisweeps=True,
+                sweeps_num=1,
+                load_dim= 5,
+                remove_close=True
             )
             # VoxelNumAnalysisCallback(
             #     data_root_path=Path(self.data_root_path),

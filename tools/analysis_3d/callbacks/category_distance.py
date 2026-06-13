@@ -9,7 +9,7 @@ from mmengine.logging import print_log
 from mmdet3d.structures.ops import box_np_ops
 
 from tools.analysis_3d.callbacks.callback_interface import AnalysisCallbackInterface
-from tools.analysis_3d.data_classes import AnalysisData, DatasetSplitName
+from tools.analysis_3d.data_classes import AnalysisData, DatasetSplitName, LidarSweep
 from tools.analysis_3d.split_options import SplitOptions
 
 
@@ -23,6 +23,11 @@ class CategoryDistancePointCountAnalysisCallback(AnalysisCallbackInterface):
         point_bins: Optional[List[int]] = None,
         analysis_dir: str = "category_distance_points",
         remapping_classes: Optional[Dict[str, str]] = None,
+        use_multisweeps: bool = False,
+        sweeps_num: int = 1,
+        load_dim: int = 5,
+        use_dim: Optional[List[int]] = None,
+        remove_close: bool = True,
     ) -> None:
         """
         Initialize the callback to analyze lidar points in bboxes by distance ranges.
@@ -33,6 +38,11 @@ class CategoryDistancePointCountAnalysisCallback(AnalysisCallbackInterface):
         :param point_bins: Exact point-count bins to report, e.g. [0, 1, 2, 3, 4, 5].
         :param analysis_dir: Folder name to save outputs.
         :param remapping_classes: Set if compute frequency of every category after remapping.
+        :param use_multisweeps: Whether to load and concatenate multiple sweeps.
+        :param sweeps_num: Number of sweeps to concatenate (only used if use_multisweeps=True).
+        :param load_dim: Number of dimensions to load from point cloud file.
+        :param use_dim: Dimensions to use after loading (e.g., [0, 1, 2] for xyz).
+        :param remove_close: Whether to remove points close to origin.
         """
         super(CategoryDistancePointCountAnalysisCallback, self).__init__()
         self.out_path = out_path
@@ -40,11 +50,17 @@ class CategoryDistancePointCountAnalysisCallback(AnalysisCallbackInterface):
         self.point_bins = point_bins or [0, 1, 2, 3, 4, 5]
         self.analysis_dir = analysis_dir
         self.remapping_classes = remapping_classes
+        self.use_multisweeps = use_multisweeps
+        self.sweeps_num = sweeps_num
+        self.load_dim = load_dim
+        self.use_dim = use_dim or [0, 1, 2]
+        self.remove_close = remove_close
 
         self.full_output_path = self.out_path / self.analysis_dir
         self.full_output_path.mkdir(exist_ok=True, parents=True)
 
-        self.analysis_file_name = "category_distance_object_count_by_points_{}.png"
+        suffix = "_concat" if use_multisweeps else ""
+        self.analysis_file_name = f"category_distance_object_count_by_points{suffix}_" + "{}.png"
         self.y_axis_label = "Category"
         self.x_axis_label = "Number of Objects"
         self.legend_loc = "upper right"
@@ -53,6 +69,54 @@ class CategoryDistancePointCountAnalysisCallback(AnalysisCallbackInterface):
         """Generate a label for the distance range."""
         max_label = "∞" if max_dist == float('inf') else f"{max_dist}"
         return f"[{min_dist}, {max_label}]"
+
+    def _remove_close(self, points: npt.NDArray[np.float32], radius: float = 1.0) -> npt.NDArray[np.float32]:
+        """Remove points too close within a certain radius from origin.
+
+        Args:
+            points (np.ndarray): Sweep points.
+            radius (float): Radius below which points are removed. Defaults to 1.0.
+
+        Returns:
+            np.ndarray: Points after removing.
+        """
+        x_filt = np.abs(points[:, 0]) < radius
+        y_filt = np.abs(points[:, 1]) < radius
+        not_close = np.logical_not(np.logical_and(x_filt, y_filt))
+        return points[not_close]
+
+    def _load_multisweeps(self, points: npt.NDArray[np.float32], sweeps: List[LidarSweep], data_root_path: Path) -> npt.NDArray[np.float32]:
+        """Load and concatenate multiple sweeps.
+
+        Args:
+            points (np.ndarray): Base points from the main lidar frame.
+            sweeps (List[LidarSweep]): List of sweep information.
+            data_root_path (Path): Root path for lidar files.
+
+        Returns:
+            np.ndarray: Concatenated points from all sweeps.
+        """
+        points = points[:, self.use_dim]
+        sweep_points_list = [points]
+
+        if len(sweeps) > 0:
+            # Always pick the most recent sweeps 
+            choices = [0]
+            # choices = np.random.choice(len(sweeps), min(self.sweeps_num, len(sweeps)), replace=False)
+            for idx in choices:
+                sweep: LidarSweep = sweeps[idx]
+                sweep_path = data_root_path / sweep.lidar_path
+                try:
+                    points_sweep = np.fromfile(sweep_path, dtype=np.float32).reshape(-1, self.load_dim)
+                    if self.remove_close:
+                        points_sweep = self._remove_close(points_sweep)
+                    points_sweep = points_sweep[:, self.use_dim]
+                    sweep_points_list.append(points_sweep)
+                except Exception as e:
+                    print_log(f"Failed to load sweep {sweep_path}: {e}")
+                    continue
+
+        return np.concatenate(sweep_points_list, axis=0)
 
     def _calculate_object_distance(self, box: object) -> float:
         """
@@ -110,14 +174,17 @@ class CategoryDistancePointCountAnalysisCallback(AnalysisCallbackInterface):
             distance_range_stats[range_label] = defaultdict(lambda: defaultdict(int))
 
         # Iterate through all samples and boxes
+        data_root_path = Path(analysis_data.data_root_path)
         for scenario_data in analysis_data.scenario_data.values():
             for sample_data in scenario_data.sample_data.values():
                 # Load lidar points if available
-                lidar_path = sample_data.lidar_point.lidar_path
-                data_root_path = Path(analysis_data.data_root_path)
-                lidar_path = data_root_path / lidar_path    
+                lidar_path = data_root_path / sample_data.lidar_point.lidar_path
                 points = np.fromfile(lidar_path, dtype=np.float32).reshape(
                     -1, sample_data.lidar_point.num_pts_feats)
+                
+                # Load multisweeps if enabled
+                if self.use_multisweeps and sample_data.lidar_sweeps:
+                    points = self._load_multisweeps(points, sample_data.lidar_sweeps, data_root_path)
                 
                 bboxes = sample_data.detection_boxes
                 if not len(bboxes) or points is None:
