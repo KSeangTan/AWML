@@ -36,7 +36,7 @@ class CategoryDistancePointCountAnalysisCallback(AnalysisCallbackInterface):
         """
         super(CategoryDistancePointCountAnalysisCallback, self).__init__()
         self.out_path = out_path
-        self.distance_ranges = distance_ranges or [(0, 50), (50, 90), (90, float('inf'))]
+        self.distance_ranges = distance_ranges or [(0, 50), (50, 90), (90, 124), (124, float('inf'))]
         self.point_bins = point_bins or [0, 1, 2, 3, 4, 5]
         self.analysis_dir = analysis_dir
         self.remapping_classes = remapping_classes
