@@ -1,5 +1,5 @@
 num_proposals = 500
-max_num_points = 32
+max_num_points = 10
 max_voxels = [120000, 160000]
 out_size_factor = 8
 
@@ -92,11 +92,12 @@ model = dict(
                 dict(class_names=["car", "truck", "bus"], class_indices=[0, 1, 2], nms_threshold=0.25, post_max_size=300),  # It's radius if using circle_nms
                 dict(class_names=["bicycle"], class_indices=[3], nms_threshold=0.0, post_max_size=50),
                 dict(class_names=["pedestrian"], class_indices=[4], nms_threshold=0.0, post_max_size=100),
-                dict(class_names=["traffic_cone"], class_indices=[5], nms_threshold=0.0, post_max_size=100),
-                dict(class_names=["barrier"], class_indices=[6], nms_threshold=0.0, post_max_size=50),
+                # dict(class_names=["traffic_cone"], class_indices=[5], nms_threshold=0.0, post_max_size=100),
+                # dict(class_names=["barrier"], class_indices=[6], nms_threshold=0.0, post_max_size=50),
             ],
         ),
-        dense_heatmap_pooling_classes=["car", "truck", "bus", "barrier"],  # Use class indices for pooling
+        # dense_heatmap_pooling_classes=["car", "truck", "bus", "barrier"],  # Use class indices for pooling
+        dense_heatmap_pooling_classes=["car", "truck", "bus", "bicycle"],  # Use class indices for pooling
         common_heads=dict(center=[2, 2], height=[1, 2], dim=[3, 2], rot=[2, 2], vel=[2, 2]),
         bbox_coder=dict(
             type="TransFusionBBoxCoder",
@@ -119,6 +120,6 @@ model = dict(
         loss_heatmap=dict(type="mmdet.GaussianFocalLoss", reduction="none", loss_weight=1.0),
         loss_bbox=dict(type="mmdet.L1Loss", reduction="mean", loss_weight=0.25),
         # partial_
-        partial_ignore_labels=["traffic_cone", "barrier"],
+        # partial_ignore_labels=["traffic_cone", "barrier"],
     ),
 )

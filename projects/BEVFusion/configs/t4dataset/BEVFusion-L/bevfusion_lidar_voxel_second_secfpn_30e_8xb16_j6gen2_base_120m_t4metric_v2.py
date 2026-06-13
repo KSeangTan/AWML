@@ -3,7 +3,7 @@ _base_ = [
 ]
 
 # user setting
-experiment_group_name = "bevfusion_lidar_intensity_2_8_1/j6gen2_base/" + _base_.dataset_type
+experiment_group_name = "bevfusion_lidar_intensity_2_7_1_no_tc/j6gen2_base/" + _base_.dataset_type
 experiment_name = "lidar_voxel_second_secfpn_30e_8xb16_j6gen2_base_120m_t4metric_v2"
 work_dir = "work_dirs/" + experiment_group_name + "/" + experiment_name
 
@@ -14,14 +14,26 @@ perception_evaluator_configs = dict(
     evaluation_config_dict=_base_.evaluator_metric_configs,
     load_raw_data=False,
 )
-
+temp_class_names = [
+    "car",
+    "truck",
+    "bus",
+    "bicycle",
+    "pedestrian",
+]
 frame_pass_fail_config = dict(
-    target_labels=_base_.class_names,
+    target_labels=temp_class_names,
     # Matching thresholds per class (must align with `plane_distance_thresholds` used in evaluation)
-    matching_threshold_list=[2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+    # matching_threshold_list=[2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+    matching_threshold_list=[2.0, 2.0, 2.0, 2.0, 2.0],
     confidence_threshold_list=None,
 )
 
+model = dict(
+    bbox_head=dict(
+        class_names=temp_class_names
+    )
+)
 training_statistics_parquet_path = (
     _base_.data_root + _base_.info_directory_path + _base_.info_train_statistics_file_name
 )
@@ -29,6 +41,7 @@ testing_statistics_parquet_path = _base_.data_root + _base_.info_directory_path 
 validation_statistics_parquet_path = (
     _base_.data_root + _base_.info_directory_path + _base_.info_val_statistics_file_name
 )
+
 
 val_evaluator = dict(
     _delete_=True,
@@ -46,7 +59,7 @@ val_evaluator = dict(
     num_workers=64,
     scene_batch_size=-1,
     write_metric_summary=False,
-    class_names={{_base_.class_names}},
+    class_names=temp_class_names,
     name_mapping={{_base_.name_mapping}},
     experiment_name=experiment_name,
     experiment_group_name=_base_.experiment_group_name,
@@ -69,7 +82,7 @@ test_evaluator = dict(
     num_workers=64,
     scene_batch_size=-1,
     write_metric_summary=True,
-    class_names={{_base_.class_names}},
+    class_names=temp_class_names,
     name_mapping={{_base_.name_mapping}},
     experiment_name=experiment_name,
     experiment_group_name=_base_.experiment_group_name,
