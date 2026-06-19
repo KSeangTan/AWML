@@ -3,7 +3,7 @@ _base_ = [
 ]
 
 # user setting
-experiment_group_name = "bevfusion_lidar/base/" + _base_.dataset_type
+experiment_group_name = "bevfusion_lidar_2_7_0_no_tc/base/" + _base_.dataset_type
 experiment_name = "lidar_voxel_second_secfpn_50e_8xb16_base_120m_t4metric_v2"
 work_dir = "work_dirs/" + experiment_group_name + "/" + experiment_name
 
@@ -14,11 +14,18 @@ perception_evaluator_configs = dict(
     evaluation_config_dict=_base_.evaluator_metric_configs,
     load_raw_data=False,
 )
-
+temp_class_names = [
+    "car",
+    "truck",
+    "bus",
+    "bicycle",
+    "pedestrian",
+]
 frame_pass_fail_config = dict(
-    target_labels=_base_.class_names,
+    target_labels=temp_class_names,
     # Matching thresholds per class (must align with `plane_distance_thresholds` used in evaluation)
-    matching_threshold_list=[2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+    # matching_threshold_list=[2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+    matching_threshold_list=[2.0, 2.0, 2.0, 2.0, 2.0],
     confidence_threshold_list=None,
 )
 
@@ -46,10 +53,11 @@ val_evaluator = dict(
     num_workers=64,
     scene_batch_size=-1,
     write_metric_summary=False,
-    class_names={{_base_.class_names}},
+    class_names=temp_class_names,
     name_mapping={{_base_.name_mapping}},
     experiment_name=experiment_name,
     experiment_group_name=_base_.experiment_group_name,
+    min_num_points=2
 )
 
 test_evaluator = dict(
@@ -68,8 +76,9 @@ test_evaluator = dict(
     num_workers=64,
     scene_batch_size=-1,
     write_metric_summary=True,
-    class_names={{_base_.class_names}},
+    class_names=temp_class_names,
     name_mapping={{_base_.name_mapping}},
     experiment_name=experiment_name,
     experiment_group_name=_base_.experiment_group_name,
+    min_num_points=2
 )
