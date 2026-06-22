@@ -1128,7 +1128,8 @@ def _append_model_tp_error_variant_table(
 ) -> None:
     """Per-class TP error table for medium or optimal variant."""
     display = _tp_error_variant_display_title(tp_error_variant, variant_label)
-    lines.append(f"**TP error — {display}**")
+    lines.append("<details>")
+    lines.append(f"<summary><strong>TP error — {display}</strong></summary>")
     lines.append("")
     num_match_col = _num_match_column_label(tp_error_variant, thresh_str)
     lines.append(_markdown_row(["class_name", num_match_col, *_tp_error_header_cells(thresh_str)]))
@@ -1147,6 +1148,8 @@ def _append_model_tp_error_variant_table(
                 ]
             )
         )
+    lines.append("")
+    lines.append("</details>")
     lines.append("")
 
 
@@ -1182,7 +1185,8 @@ def _append_num_match_summary_table(
         ("optimal", "optimal"),
     ]
 
-    lines.append("**Num match summary**")
+    lines.append("<details>")
+    lines.append("<summary><strong>Num match summary</strong></summary>")
     lines.append("")
 
     for tp_variant, variant_display in variants:
@@ -1206,6 +1210,9 @@ def _append_num_match_summary_table(
                 cells.append(_fmt_threshold_int_vals(num_match_vals))
             lines.append(_markdown_row(cells))
         lines.append("")
+
+    lines.append("</details>")
+    lines.append("")
 
 
 def _append_mean_tp_error_summary_table(lines: list[str], entries: list[dict], metric_type: str) -> None:
