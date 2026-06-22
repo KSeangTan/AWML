@@ -247,6 +247,8 @@ THRESHOLDS = {
 # Each display label maps to candidate (bucket_name, metric_name) pairs.
 # bucket_name=None reads from top-level metrics; otherwise from aggregated_metric_label.
 CATEGORICAL_OVERALL_METRICS: tuple[tuple[str, tuple[tuple[str | None, str], ...]], ...] = (
+    ("mAP", ((None, "mAP"),)),
+    ("mAPH", ((None, "mAPH"),)),
     ("map_based_nds", ((None, "map_based_nds"), ("map", "map_based_nds"))),
     (
         "maph_based_nds",
@@ -465,7 +467,7 @@ def _append_plot_links(lines: list[str], metric_type: str) -> None:
     """Relative markdown image links for generated PNG figures."""
     lines.append("## Figures")
     lines.append("")
-    lines.append(f"### AP / NDS (`{metric_type}`)")
+    lines.append(f"### AP / mAP / mAPH / NDS (`{metric_type}`)")
     lines.append(f"![AP chart](ap_{metric_type}.png)")
     lines.append("")
     for tp_variant, variant_label in TP_ERROR_CHART_VARIANTS:
@@ -737,8 +739,11 @@ def generate_location_plot(
         all_labels = _collect_class_labels_from_entries(entries)
 
         label_gts = {lb: _get_label_gts(entries, lb) for lb in all_labels}
+        total_gts = _get_total_gts(entries)
         overall_metric_labels = [label for label, _ in CATEGORICAL_OVERALL_METRICS]
-        x_tick_labels = [f"{lb}\n(GTs: {label_gts[lb]:,})" for lb in all_labels] + overall_metric_labels
+        x_tick_labels = [f"{lb}\n(GTs: {label_gts[lb]:,})" for lb in all_labels] + [
+            f"mAP\n(GTs: {total_gts:,})" if label == "mAP" else label for label in overall_metric_labels
+        ]
 
         model_ids: list[str] = []
         for entry in entries:
@@ -797,7 +802,7 @@ def generate_location_plot(
         ax.set_xticks(x)
         ax.set_xticklabels(x_tick_labels, fontsize=11, rotation=45, ha="right")
         ax.set_ylim(0, 1.18)
-        ax.set_ylabel("AP / NDS", fontsize=12)
+        ax.set_ylabel("AP / mAP / mAPH / NDS", fontsize=12)
         ax.set_title(
             f"{metric_range}  ({metric_type_short})",
             fontsize=13,
