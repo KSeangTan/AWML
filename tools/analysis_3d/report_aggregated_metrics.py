@@ -1158,35 +1158,54 @@ def _mean_tp_summary_suffix(tp_variant: str) -> str:
     return "optimal"
 
 
+def _ordered_num_match_class_labels(all_labels: list[str]) -> list[str]:
+    """Class order for num-match summary table."""
+    preferred = ["car", "truck", "bus", "bicycle", "pedestrian", "traffic_cone", "barrier"]
+    ordered = [label for label in preferred if label in all_labels]
+    ordered.extend([label for label in all_labels if label not in ordered])
+    return ordered
+
+
 def _append_num_match_summary_table(
     lines: list[str],
     entries: list[dict],
     all_labels: list[str],
     metric_type: str,
 ) -> None:
-    """Consolidated num-match table at recall @ 0.10 (min-recall-num-match)."""
+    """Consolidated num-match summary split by recall variant."""
     thresholds = THRESHOLDS.get(metric_type, [])
     thresh_str = "/".join(thresholds)
-    class_cols = [
-        f"{metric_label} @ recall 0.10<br>{thresh_str}<br>(GTs: {_get_label_gts(entries, metric_label):,})"
-        for metric_label in all_labels
+    ordered_labels = _ordered_num_match_class_labels(all_labels)
+    variants: list[tuple[str, str]] = [
+        ("", "recall 0.10"),
+        ("medium", "recall 0.40"),
+        ("optimal", "optimal"),
     ]
 
-    lines.append("**Num match summary (recall @ 0.10)**")
+    lines.append("**Num match summary**")
     lines.append("")
-    lines.append(_markdown_row(["Model version", *class_cols]))
-    lines.append(_markdown_row([":----", *[":----"] * len(class_cols)]))
 
-    for entry in entries:
-        model_id = f"{entry['model_name']} {entry['model_version']}"
-        idx = _build_metric_label_index(entry)
-        cells = [model_id]
-        for metric_label in all_labels:
-            lm = idx.get(metric_label, (metric_label, {}))[1]
-            num_match_vals = _get_per_threshold_num_match(lm, metric_label, metric_type, "")
-            cells.append(_fmt_threshold_int_vals(num_match_vals))
-        lines.append(_markdown_row(cells))
-    lines.append("")
+    for tp_variant, variant_display in variants:
+        class_cols = []
+        for metric_label in ordered_labels:
+            gts = _get_label_gts(entries, metric_label)
+            class_cols.append(f"{metric_label}<br>{thresh_str}<br>(GTs: {gts:,})")
+
+        lines.append(f"**{variant_display}**")
+        lines.append("")
+        lines.append(_markdown_row(["Model version", *class_cols]))
+        lines.append(_markdown_row([":----", *[":----"] * len(class_cols)]))
+
+        for entry in entries:
+            model_id = f"{entry['model_name']} {entry['model_version']}"
+            idx = _build_metric_label_index(entry)
+            cells = [model_id]
+            for metric_label in ordered_labels:
+                lm = idx.get(metric_label, (metric_label, {}))[1]
+                num_match_vals = _get_per_threshold_num_match(lm, metric_label, metric_type, tp_variant)
+                cells.append(_fmt_threshold_int_vals(num_match_vals))
+            lines.append(_markdown_row(cells))
+        lines.append("")
 
 
 def _append_mean_tp_error_summary_table(lines: list[str], entries: list[dict], metric_type: str) -> None:
