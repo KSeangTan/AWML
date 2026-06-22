@@ -74,6 +74,7 @@ class HardSimpleVoxelSinCosEncoder(nn.Module):
         voxel_fourier_features = torch.cat([torch.cos(y), torch.sin(y)], dim=1)
 
         return voxel_fourier_features
+<<<<<<< HEAD
 
 
 @MODELS.register_module()
@@ -398,3 +399,5 @@ class BEVFusionVoxelFeatureNet(HardSimpleVoxelSinCosEncoder):
 #         # Concat
 #         features = torch.cat([voxel_fourier_features, voxel_feature_offsets.squeeze(1)], dim=-1)
 #         return features
+=======
+>>>>>>> main
