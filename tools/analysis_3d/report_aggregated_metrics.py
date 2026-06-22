@@ -30,36 +30,76 @@ from pathlib import Path
 # ── Input specification ──────────────────────────────────────────────────────
 # Each entry: (model_name, model_version, json_file_path)
 json_files: list[tuple[str, str, str]] = [
+    # (
+    #     "BEVFusion-LiDAR",
+    #     "j6gen2_base/2.7.1",
+    #     "/home/kokseang/results/bevfusion_lidar_2_7_1/j6gen2_base/evaluation/j6gen2/testing/j6gen2/aggregated_metrics.json"
+    # ),
+    # (
+    #     "BEVFusion-LiDAR",
+    #     "j6gen2_base/2.7.1",
+    #     "/home/kokseang/results/bevfusion_lidar_2_7_1/j6gen2_base/evaluation/j6gen2_base/testing/j6gen2_base/aggregated_metrics.json"
+    # ),
+    # (
+    #     "BEVFusion-LiDAR",
+    #     "j6gen2_base/2.7.1",
+    #     "/home/kokseang/results/bevfusion_lidar_2_7_1/j6gen2_base/evaluation/largebus/testing/largebus/aggregated_metrics.json"
+    # ),
+    # (
+    #     "BEVFusion-LiDAR",
+    #     "jpntaxi_base/2.7.1",
+    #     "/home/kokseang/results/bevfusion_lidar_2_7_1/jpntaxi_base/evaluation/jpntaxi_gen2/testing/jpntaxi_gen2/aggregated_metrics.json"
+    # ),
     (
         "BEVFusion-LiDAR",
-        "j6gen2_base/2.7.1",
-        "/home/kokseangtantier4jp/utils/metric_comparisons/j6gen2_base_previous/T4Dataset/lidar_voxel_second_secfpn_30e_8xb8_j6gen2_base_120m_t4metric_v2/20260603_160251/testing/largebus/aggregated_metrics.json",
+        "base/2.8.0",
+        "/home/kokseang/results/bevfusion_lidar_2_8_0/base/evaluation/base/testing/base/aggregated_metrics.json"    
     ),
     (
         "BEVFusion-LiDAR",
-        "j6gen2_base/2.7.1",
-        "/home/kokseangtantier4jp/utils/metric_comparisons/j6gen2_base_previous/T4Dataset/lidar_voxel_second_secfpn_30e_8xb8_j6gen2_base_120m_t4metric_v2/20260603_165040/testing/j6gen2/aggregated_metrics.json",
+        "base/2.8.0",
+        "/home/kokseang/results/bevfusion_lidar_2_8_0/base/evaluation/j6gen2/testing/j6gen2/aggregated_metrics.json"
     ),
     (
         "BEVFusion-LiDAR",
-        "j6gen2_base/2.7.1",
-        "/home/kokseangtantier4jp/utils/metric_comparisons/j6gen2_base_previous/T4Dataset/lidar_voxel_second_secfpn_30e_8xb8_j6gen2_base_120m_t4metric_v2/20260603_193810/testing/j6gen2_base/aggregated_metrics.json",
+        "base/2.8.0",
+        "/home/kokseang/results/bevfusion_lidar_2_8_0/base/evaluation/j6gen2_base/testing/j6gen2_base/aggregated_metrics.json"
     ),
     (
         "BEVFusion-LiDAR",
-        "j6gen2_base/2.7.1_bbox_aug",
-        "/home/kokseangtantier4jp/utils/metric_comparisons/j6gen2_base_with_bbox_expand_adjusted/T4Dataset/lidar_voxel_second_secfpn_30e_8xb8_j6gen2_base_120m_t4metric_v2/20260603_063548/testing/largebus/aggregated_metrics.json",
+        "base/2.8.0",
+        "/home/kokseang/results/bevfusion_lidar_2_8_0/base/evaluation/jpntaxi_gen2/testing/jpntaxi_gen2/aggregated_metrics.json"
     ),
     (
         "BEVFusion-LiDAR",
-        "j6gen2_base/2.7.1_bbox_aug",
-        "/home/kokseangtantier4jp/utils/metric_comparisons/j6gen2_base_with_bbox_expand_adjusted/T4Dataset/lidar_voxel_second_secfpn_30e_8xb8_j6gen2_base_120m_t4metric_v2/20260603_072344/testing/j6gen2/aggregated_metrics.json",
+        "base/2.8.0",
+        "/home/kokseang/results/bevfusion_lidar_2_8_0/base/evaluation/largebus/testing/largebus/aggregated_metrics.json"
     ),
     (
         "BEVFusion-LiDAR",
-        "j6gen2_base/2.7.1_bbox_aug",
-        "/home/kokseangtantier4jp/utils/metric_comparisons/j6gen2_base_with_bbox_expand_adjusted/T4Dataset/lidar_voxel_second_secfpn_30e_8xb8_j6gen2_base_120m_t4metric_v2/20260603_100940/testing/j6gen2_base/aggregated_metrics.json",
+        "j6gen2_base/2.8.1",
+        "/home/kokseang/results/bevfusion_lidar_2_8_1/j6gen2_base/evaluation/j6gen2/testing/j6gen2/aggregated_metrics.json"
     ),
+    (
+        "BEVFusion-LiDAR",
+        "j6gen2_base/2.8.1",
+        "/home/kokseang/results/bevfusion_lidar_2_8_1/j6gen2_base/evaluation/j6gen2_base/testing/j6gen2_base/aggregated_metrics.json"
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "j6gen2_base/2.8.1",
+        "/home/kokseang/results/bevfusion_lidar_2_8_1/j6gen2_base/evaluation/j6gen2_base/testing/j6gen2_base/aggregated_metrics.json"
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "j6gen2_base/2.8.1",
+        "/home/kokseang/results/bevfusion_lidar_2_8_1/j6gen2_base/evaluation/largebus/testing/largebus/aggregated_metrics.json"
+    ),
+    (
+        "BEVFusion-LiDAR",
+        "jpntaxi_base/2.8.1",
+        "/home/kokseang/results/bevfusion_lidar_2_8_1/jpntaxi_base/evaluation/jpntaxi_gen2/testing/jpntaxi_gen2/aggregated_metrics.json"
+    )
 ]
 
 
@@ -203,10 +243,22 @@ THRESHOLDS = {
     "plane_distance": ["2.0", "4.0"],
 }
 
-# Overall metrics (mAP, mAPH, NDS): chart/table columns without per-class GT counts.
-OVERALL_METRIC_LABELS = ("mAP", "mAPH", "map_based_nds", "mapH_based_nds")
-# NDS-only: plain x-axis labels, no GT line (same style as mAPH).
-CHART_NDS_LABELS = ("map_based_nds", "mapH_based_nds")
+# Overall metrics kept in categorical summaries/charts.
+# Each display label maps to candidate (bucket_name, metric_name) pairs.
+# bucket_name=None reads from top-level metrics; otherwise from aggregated_metric_label.
+CATEGORICAL_OVERALL_METRICS: tuple[tuple[str, tuple[tuple[str | None, str], ...]], ...] = (
+    ("map_based_nds", ((None, "map_based_nds"), ("map", "map_based_nds"))),
+    (
+        "maph_based_nds",
+        (
+            (None, "mapH_based_nds"),
+            (None, "maph_based_nds"),
+            ("mapH", "mapH_based_nds"),
+            ("maph", "maph_based_nds"),
+            ("maph", "maph_based-nds"),
+        ),
+    ),
+)
 
 # Per-label TP error types (AEE in spec; JSON keys use AAE).
 TP_ERROR_TYPES = ("ATE", "AOE", "ASE", "AVE", "AEE")
@@ -245,6 +297,35 @@ MEAN_TP_ERROR_TYPES = ("mATE", "mAOE", "mASE", "mAVE", "mAAE")
 
 def _overall_metric_key(metric_name: str, matching_method: str) -> str:
     return f"T4MetricV2/{metric_name}_{matching_method}"
+
+
+def _is_categorical_overall_label(label: str) -> bool:
+    return label in {"map", "mapH", "maph"}
+
+
+def _overall_metric_value(entry: dict, metric_label: str, matching_method: str) -> float | None:
+    metrics = entry.get("metrics", {})
+    label_metrics = entry.get("label_metrics", {})
+
+    for display_label, metric_sources in CATEGORICAL_OVERALL_METRICS:
+        if display_label != metric_label:
+            continue
+
+        for bucket_name, metric_name in metric_sources:
+            source = metrics if bucket_name is None else label_metrics.get(bucket_name, {})
+            value = source.get(_overall_metric_key(metric_name, matching_method))
+            if value is not None:
+                return value
+        return None
+
+    value = metrics.get(_overall_metric_key(metric_label, matching_method))
+    if value is not None:
+        return value
+
+    legacy_label = metric_label.replace("maph_", "mapH_", 1)
+    if legacy_label != metric_label:
+        return metrics.get(_overall_metric_key(legacy_label, matching_method))
+    return None
 
 
 def _is_mean_tp_error_label(label: str) -> bool:
@@ -314,8 +395,12 @@ def _build_metric_label_index(entry: dict) -> dict[str, tuple[str, dict]]:
     for bucket_label, lm in entry.get("label_metrics", {}).items():
         if _is_mean_tp_error_label(bucket_label):
             continue
+        if _is_categorical_overall_label(bucket_label):
+            continue
         metric_label = _infer_metric_label(bucket_label, lm)
         if _is_mean_tp_error_label(metric_label):
+            continue
+        if _is_categorical_overall_label(metric_label):
             continue
         out.setdefault(metric_label, (bucket_label, lm))
     return out
@@ -380,7 +465,7 @@ def _append_plot_links(lines: list[str], metric_type: str) -> None:
     """Relative markdown image links for generated PNG figures."""
     lines.append("## Figures")
     lines.append("")
-    lines.append(f"### AP / mAP / mAPH / NDS (`{metric_type}`)")
+    lines.append(f"### AP / NDS (`{metric_type}`)")
     lines.append(f"![AP chart](ap_{metric_type}.png)")
     lines.append("")
     for tp_variant, variant_label in TP_ERROR_CHART_VARIANTS:
@@ -508,23 +593,23 @@ def build_location_report(
                     label_gts[metric_label] = g
                     break
 
-        header_cols = ["Model version", *OVERALL_METRIC_LABELS]
+        overall_metric_labels = [label for label, _ in CATEGORICAL_OVERALL_METRICS]
+        header_cols = ["Model version", *overall_metric_labels]
         for metric_label in all_labels:
             gts = label_gts.get(metric_label, 0)
             header_cols.append(f"{metric_label}<br>({gts:,})")
         lines.append("| " + " | ".join(header_cols) + " |")
 
-        sep_cols = [":----"] + ["---:"] * len(OVERALL_METRIC_LABELS) + ["---:"] * len(all_labels)
+        sep_cols = [":----"] + ["---:"] * len(overall_metric_labels) + ["---:"] * len(all_labels)
         lines.append("| " + " | ".join(sep_cols) + " |")
 
         # One row per model
         for entry in entries:
-            m = entry["metrics"]
             model_id = f"{entry['model_name']} {entry['model_version']}"
 
             cells = [model_id]
-            for name in OVERALL_METRIC_LABELS:
-                cells.append(_fmt(m.get(_overall_metric_key(name, metric_type))))
+            for name in overall_metric_labels:
+                cells.append(_fmt(_overall_metric_value(entry, name, metric_type)))
             idx = _build_metric_label_index(entry)
             for metric_label in all_labels:
                 lm = idx.get(metric_label, (metric_label, {}))[1]
@@ -541,12 +626,11 @@ def build_location_report(
             "class_name",
             "GTs",
             _num_match_column_label(None, thresh_str),
-            "mAP",
             f"AP@{thresh_str}",
             f"max_f1@{thresh_str}",
             f"optimal_conf@{thresh_str}",
         ]
-        detail_sep = [":----", "---:", ":----", ":----", ":----", ":----", ":----"]
+        detail_sep = [":----", "---:", ":----", ":----", ":----", ":----"]
 
         for entry in entries:
             model_id = f"{entry['model_name']} {entry['model_version']}"
@@ -554,9 +638,6 @@ def build_location_report(
             lines.append("")
             lines.append(_markdown_row(detail_header))
             lines.append(_markdown_row(detail_sep))
-
-            m = entry["metrics"]
-            mAP_val = _fmt(m.get(_overall_metric_key("mAP", metric_type)))
 
             idx = _build_metric_label_index(entry)
             for metric_label in all_labels:
@@ -569,37 +650,18 @@ def build_location_report(
                 f1_vals = _get_per_threshold(lm, metric_label, metric_type, "max-f1score")
                 conf_vals = _get_per_threshold(lm, metric_label, metric_type, "optimal-confidence")
 
-                valid_aps = [v for v in ap_vals if v is not None]
-                label_map = _fmt(sum(valid_aps) / len(valid_aps)) if valid_aps else "N/A"
-
                 lines.append(
                     _markdown_row(
                         [
                             metric_label,
                             _fmt_int(gts),
                             _fmt_threshold_int_vals(num_match_vals),
-                            label_map,
                             _fmt_threshold_vals(ap_vals),
                             _fmt_threshold_vals(f1_vals),
                             _fmt_threshold_vals(conf_vals),
                         ]
                     )
                 )
-
-            total_gts = entry["metadata"].get("metadata/test_total_num_ground_truths")
-            lines.append(
-                _markdown_row(
-                    [
-                        "**ALL**",
-                        _fmt_int(total_gts),
-                        "—",
-                        mAP_val,
-                        "—",
-                        "—",
-                        "—",
-                    ]
-                )
-            )
             lines.append("")
             _append_model_mean_tp_error_table(lines, entry, metric_type)
             for tp_variant, variant_label in (("", "default"), ("medium", "medium"), ("optimal", "optimal")):
@@ -675,12 +737,8 @@ def generate_location_plot(
         all_labels = _collect_class_labels_from_entries(entries)
 
         label_gts = {lb: _get_label_gts(entries, lb) for lb in all_labels}
-        total_gts = _get_total_gts(entries)
-        x_tick_labels = [f"{lb}\n(GTs: {label_gts[lb]:,})" for lb in all_labels] + [
-            f"mAP\n(GTs: {total_gts:,})",
-            "mAPH",
-            *CHART_NDS_LABELS,
-        ]
+        overall_metric_labels = [label for label, _ in CATEGORICAL_OVERALL_METRICS]
+        x_tick_labels = [f"{lb}\n(GTs: {label_gts[lb]:,})" for lb in all_labels] + overall_metric_labels
 
         model_ids: list[str] = []
         for entry in entries:
@@ -711,13 +769,13 @@ def generate_location_plot(
                         ap_vals.append(ap)
                 values.append(ap_vals[0] if ap_vals else 0.0)
 
-            for name in OVERALL_METRIC_LABELS:
+            for name in overall_metric_labels:
                 agg_vals = []
                 for entry in entries:
                     eid = f"{entry['model_name']}\n{entry['model_version']}"
                     if eid != mid:
                         continue
-                    v = entry["metrics"].get(_overall_metric_key(name, metric_type))
+                    v = _overall_metric_value(entry, name, metric_type)
                     if v is not None:
                         agg_vals.append(v)
                 values.append(agg_vals[0] if agg_vals else 0.0)
@@ -739,7 +797,7 @@ def generate_location_plot(
         ax.set_xticks(x)
         ax.set_xticklabels(x_tick_labels, fontsize=11, rotation=45, ha="right")
         ax.set_ylim(0, 1.18)
-        ax.set_ylabel("AP / mAP / mAPH / NDS", fontsize=12)
+        ax.set_ylabel("AP / NDS", fontsize=12)
         ax.set_title(
             f"{metric_range}  ({metric_type_short})",
             fontsize=13,
