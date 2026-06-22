@@ -251,6 +251,10 @@ CATEGORICAL_OVERALL_METRICS: tuple[tuple[str, tuple[tuple[str | None, str], ...]
     ("mAPH", ((None, "mAPH"),)),
     ("map_based_nds", ((None, "map_based_nds"), ("map", "map_based_nds"))),
     (
+        "map_based_medium_nds",
+        ((None, "map_based_medium_nds"), ("map", "map_based_medium_nds")),
+    ),
+    (
         "maph_based_nds",
         (
             (None, "mapH_based_nds"),
@@ -258,6 +262,16 @@ CATEGORICAL_OVERALL_METRICS: tuple[tuple[str, tuple[tuple[str | None, str], ...]
             ("mapH", "mapH_based_nds"),
             ("maph", "maph_based_nds"),
             ("maph", "maph_based-nds"),
+        ),
+    ),
+    (
+        "maph_based_medium_nds",
+        (
+            (None, "mapH_based_medium_nds"),
+            (None, "maph_based_medium_nds"),
+            ("mapH", "mapH_based_medium_nds"),
+            ("maph", "maph_based_medium_nds"),
+            ("maph", "maph_based_medium_nds"),
         ),
     ),
 )
@@ -328,6 +342,16 @@ def _overall_metric_value(entry: dict, metric_label: str, matching_method: str) 
     if legacy_label != metric_label:
         return metrics.get(_overall_metric_key(legacy_label, matching_method))
     return None
+
+
+def _summary_overall_metric_header(metric_label: str) -> str:
+    if metric_label in {"map_based_nds", "maph_based_nds"}:
+        return f"{metric_label} (recall @ 0.10)"
+    if metric_label == "map_based_medium_nds":
+        return "map_based_nds (recall @ 0.40)"
+    if metric_label == "maph_based_medium_nds":
+        return "maph_based_nds (recall 0.40)"
+    return metric_label
 
 
 def _is_mean_tp_error_label(label: str) -> bool:
@@ -596,7 +620,7 @@ def build_location_report(
                     break
 
         overall_metric_labels = [label for label, _ in CATEGORICAL_OVERALL_METRICS]
-        header_cols = ["Model version", *overall_metric_labels]
+        header_cols = ["Model version", *[_summary_overall_metric_header(label) for label in overall_metric_labels]]
         for metric_label in all_labels:
             gts = label_gts.get(metric_label, 0)
             header_cols.append(f"{metric_label}<br>({gts:,})")
