@@ -619,6 +619,7 @@ def build_location_report(
                 cells.append(_fmt(ap))
             lines.append("| " + " | ".join(cells) + " |")
         lines.append("")
+        _append_mean_tp_error_summary_table(lines, entries, metric_type)
 
         # ── Detailed per-model tables ────────────────────────────────────
         thresholds = THRESHOLDS.get(metric_type, [])
@@ -665,7 +666,6 @@ def build_location_report(
                     )
                 )
             lines.append("")
-            _append_model_mean_tp_error_table(lines, entry, metric_type)
             for tp_variant, variant_label in (("", "default"), ("medium", "medium"), ("optimal", "optimal")):
                 _append_model_tp_error_variant_table(
                     lines, entry, all_labels, metric_type, tp_variant, variant_label, thresh_str
@@ -1125,21 +1125,36 @@ def _append_model_tp_error_variant_table(
     lines.append("")
 
 
-def _append_model_mean_tp_error_table(lines: list[str], entry: dict, metric_type: str) -> None:
-    """Mean TP error table (default / medium / optimal) below one model's class detail table."""
-    mid = f"{entry['model_name']}\n{entry['model_version']}"
-    lines.append("**Mean TP error**")
+def _mean_tp_summary_suffix(tp_variant: str) -> str:
+    if tp_variant == "":
+        return "recall @ 0.10"
+    if tp_variant == "medium":
+        return "recall @ 0.40"
+    return "optimal"
+
+
+def _append_mean_tp_error_summary_table(lines: list[str], entries: list[dict], metric_type: str) -> None:
+    """Consolidated mean TP error table shown below the top comparison table."""
+    summary_columns = [
+        f"{err_type} ({_mean_tp_summary_suffix(tp_variant)})"
+        for tp_variant, _variant_label in TP_ERROR_CHART_VARIANTS
+        for err_type in MEAN_TP_ERROR_TYPES
+    ]
+
+    lines.append("**Mean TP error summary**")
     lines.append("")
-    lines.append(_markdown_row(["Variant", *MEAN_TP_ERROR_TYPES]))
-    lines.append(_markdown_row([":----", *["---:"] * len(MEAN_TP_ERROR_TYPES)]))
-    for tp_variant, variant_label in TP_ERROR_CHART_VARIANTS:
-        display = _tp_error_variant_display_title(tp_variant, variant_label)
-        raw_by_model = _collect_mean_tp_error_by_model([entry], metric_type, [mid], tp_variant)
-        if mid in raw_by_model:
-            vals = [_fmt(v) for v in raw_by_model[mid]]
-        else:
-            vals = ["N/A"] * len(MEAN_TP_ERROR_TYPES)
-        lines.append(_markdown_row([display, *vals]))
+    lines.append(_markdown_row(["Model version", *summary_columns]))
+    lines.append(_markdown_row([":----", *["---:"] * len(summary_columns)]))
+
+    for entry in entries:
+        model_id = f"{entry['model_name']} {entry['model_version']}"
+        mid = f"{entry['model_name']}\n{entry['model_version']}"
+        cells = [model_id]
+        for tp_variant, _variant_label in TP_ERROR_CHART_VARIANTS:
+            raw_by_model = _collect_mean_tp_error_by_model([entry], metric_type, [mid], tp_variant)
+            vals = raw_by_model.get(mid, [None] * len(MEAN_TP_ERROR_TYPES))
+            cells.extend(_fmt(v) for v in vals)
+        lines.append(_markdown_row(cells))
     lines.append("")
 
 
