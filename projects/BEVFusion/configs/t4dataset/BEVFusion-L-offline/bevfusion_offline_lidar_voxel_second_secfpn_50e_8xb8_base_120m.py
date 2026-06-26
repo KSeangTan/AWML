@@ -17,7 +17,7 @@ data_root = "data/t4dataset/"
 info_directory_path = "info/user_name/"
 
 experiment_group_name = "bevfusion_lidar_offline/base/" + _base_.dataset_type
-experiment_name = "lidar_voxel_second_secfpn_50e_4xb8_base_120m"
+experiment_name = "lidar_voxel_second_secfpn_50e_8xb8_base_120m"
 work_dir = "work_dirs/" + experiment_group_name + "/" + experiment_name
 
 # model parameter
