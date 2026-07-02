@@ -256,7 +256,7 @@ def plot_histograms(
 def main() -> None:
     args = parse_args()
     matching_mode = MATCHING_MODE_ALIASES[args.matching_mode]
-    output_dir = args.output_dir or args.evaluator_pkl.parent / "matched_pred_pointcloud_hist"
+    output_dir = args.output_dir or args.evaluator_pkl.parent / "matched_pred_pointcloud_hist_normalized"
 
     with open(args.evaluator_pkl, "rb") as f:
         evaluators = pickle.load(f)
