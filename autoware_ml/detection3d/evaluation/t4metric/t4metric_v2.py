@@ -1491,7 +1491,7 @@ class T4MetricV2(BaseMetric):
                 velocity=(bbox[7], bbox[8], 0.0),
                 semantic_score=float(score),
                 semantic_label=self._convert_index_to_label(int(label)),
-                num_points_in_gt=int(num_points),
+                pointcloud_num=int(num_points),
             )
             for bbox, score, label, num_points in zip(bboxes, scores, labels, num_points_in_gt)
             if not (np.isnan(score) or np.isnan(label) or np.any(np.isnan(bbox)))
