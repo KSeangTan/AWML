@@ -30,6 +30,7 @@ from perception_eval.evaluation.result.perception_frame_config import (
 from perception_eval.evaluation.result.perception_frame_result import PerceptionFrameResult
 from perception_eval.manager import PerceptionEvaluationManager
 from pyquaternion import Quaternion
+from mmdet3d.structures.ops import box_np_ops
 
 from autoware_ml.detection3d.evaluation.t4metric.t4metric_v2_dataframe import T4MetricV2DataFrame
 
@@ -434,12 +435,13 @@ class T4MetricV2(BaseMetric):
         if self.results_pickle_exists:
             # Skip processing if result pickle already exists
             return
-
-        for data_sample in data_samples:
+        
+        batch_points = data_batch["inputs"]["points"]
+        for points, data_sample in zip(batch_points, data_samples):
             current_time = data_sample["timestamp"]
             scene_id = self._parse_scene_id(data_sample["lidar_path"])
             frame_ground_truth = self._parse_ground_truth_from_sample(current_time, data_sample)
-            perception_frame = self._parse_predictions_from_sample(current_time, data_sample, frame_ground_truth)
+            perception_frame = self._parse_predictions_from_sample(current_time, data_sample, frame_ground_truth, points)
             self._save_perception_frame(scene_id, data_sample["sample_idx"], perception_frame)
 
     def _process_evaluator_results(self, scenes: dict) -> Dict[str, Dict[str, float]]:
@@ -874,6 +876,14 @@ class T4MetricV2(BaseMetric):
             self.evaluators[
                 perception_evaluation_result.evaluator_name
             ].perception_evaluator_manager.frame_results.append(perception_evaluation_result.perception_frame_result)
+        
+        results_output_path = self.result_output_dir / "evaluator.pkl"
+        self.logger.info(f"Saving evaluator results to pickle file: {results_output_path}")
+
+        # Create parent directory if needed
+        results_output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(results_output_path, "wb") as f:
+            pickle.dump(self.evaluators, f)
 
     def _multi_process_all_frames(self, scenes: dict) -> None:
         """Process all frames in all scenes using multiprocessing to speed up frame processing.
@@ -985,11 +995,27 @@ class T4MetricV2(BaseMetric):
 
                     # Create precision_interpolate and recall_interpolate keys
                     iterable_metrics[
-                        f"T4MetricV2_label_detection/{label_name}_precisions_{matching_mode}_{threshold}"
+                        f"T4MetricV2_label_detection/{label_name}_interp-precisions_{matching_mode}_{threshold}"
                     ] = ap.precision_interp.tolist()
                     iterable_metrics[
-                        f"T4MetricV2_label_detection/{label_name}_recalls_{matching_mode}_{threshold}"
+                        f"T4MetricV2_label_detection/{label_name}_interp-recalls_{matching_mode}_{threshold}"
                     ] = ap.recall_interp.tolist()
+                    iterable_metrics[
+                        f"T4MetricV2_label_detection/{label_name}_interp-confs_{matching_mode}_{threshold}"
+                    ] = ap.conf_interp.tolist()
+
+                    # TP error metrics (e.g. ATE, AOE, ASE, AVE, AAE)
+                    if ap.tp_error_metrics is not None:
+                        for tp_error_metric in ap.tp_error_metrics:
+                            mode = tp_error_metric.mode
+                            average_mode = tp_error_metric.average_mode
+
+                            iterable_metrics[
+                                f"T4MetricV2_label_detection/{label_name}_{mode}_values_{matching_mode}_{threshold}"
+                            ] = tp_error_metric.values.tolist()
+                            iterable_metrics[
+                                f"T4MetricV2_label_detection/{label_name}_{mode}_interp-values_{matching_mode}_{threshold}"
+                            ] = tp_error_metric.interpolated_values.tolist()
 
         return iterable_metrics
 
@@ -1044,6 +1070,40 @@ class T4MetricV2(BaseMetric):
                         ap.optimal_precision
                     )
 
+                    # Number of prediction matches (TPs) and matches at the optimal confidence threshold
+                    metric_dict[f"T4MetricV2_label/{label_name}_num-match_{matching_mode}_{threshold}"] = ap.num_tp
+                    metric_dict[f"T4MetricV2_label/{label_name}_min-recall-num-match_{matching_mode}_{threshold}"] = (
+                        ap.num_tp_at_min_recall_conf
+                    )
+                    metric_dict[
+                        f"T4MetricV2_label/{label_name}_medium-recall-num-match_{matching_mode}_{threshold}"
+                    ] = ap.num_tp_at_medium_recall_conf
+                    metric_dict[f"T4MetricV2_label/{label_name}_optimal-num-match_{matching_mode}_{threshold}"] = (
+                        ap.num_tp_at_optimal_conf
+                    )
+
+                    # TP error metrics (e.g. ATE, AOE, ASE, AVE, AAE)
+                    if ap.tp_error_metrics is not None:
+                        for tp_error_metric in ap.tp_error_metrics:
+                            mode = tp_error_metric.mode
+                            average_mode = tp_error_metric.average_mode
+
+                            metric_dict[
+                                f"T4MetricV2_label/{label_name}_tp-error_{average_mode}_{matching_mode}_{threshold}"
+                            ] = tp_error_metric.avg_metric
+                            metric_dict[
+                                f"T4MetricV2_label/{label_name}_tp-error-min-recall-conf_{average_mode}_{matching_mode}_{threshold}"
+                            ] = tp_error_metric.min_recall_conf
+                            metric_dict[
+                                f"T4MetricV2_label/{label_name}_tp-error-optimal-{average_mode}_{matching_mode}_{threshold}"
+                            ] = tp_error_metric.optimal_avg_metric
+                            metric_dict[
+                                f"T4MetricV2_label/{label_name}_tp-error-medium-{average_mode}_{matching_mode}_{threshold}"
+                            ] = tp_error_metric.medium_avg_metric
+                            metric_dict[
+                                f"T4MetricV2_label/{label_name}_tp-error-medium-recall-conf-{average_mode}_{matching_mode}_{threshold}"
+                            ] = tp_error_metric.medium_recall_conf
+
                 # Label metadata key
                 metric_dict[f"metadata_label/test_{label_name}_num_predictions"] = label_num_preds
                 metric_dict[f"metadata_label/test_{label_name}_num_ground_truths"] = label_num_gts
@@ -1053,6 +1113,41 @@ class T4MetricV2(BaseMetric):
             maph_key = f"T4MetricV2/mAPH_{matching_mode}"
             metric_dict[map_key] = map_instance.map
             metric_dict[maph_key] = map_instance.maph
+
+            # Add mean TP errors (e.g. mATE, mAOE, mASE, mAVE, mAAE)
+            if map_instance.mean_tp_errors is not None:
+                for mean_tp_error_name, mean_tp_error_value in map_instance.mean_tp_errors.items():
+                    metric_dict[f"T4MetricV2/mean-tp-error_{mean_tp_error_name}_{matching_mode}"] = mean_tp_error_value
+
+                    optimal_mean_tp_errors = map_instance.optimal_mean_tp_errors.get(mean_tp_error_name, None)
+                    if optimal_mean_tp_errors is not None:
+                        metric_dict[f"T4MetricV2/mean-tp-error-optimal-{mean_tp_error_name}_{matching_mode}"] = (
+                            optimal_mean_tp_errors
+                        )
+
+                    medium_mean_tp_errors = map_instance.medium_mean_tp_errors.get(mean_tp_error_name, None)
+                    if medium_mean_tp_errors is not None:
+                        metric_dict[f"T4MetricV2/mean-tp-error-medium-{mean_tp_error_name}_{matching_mode}"] = (
+                            medium_mean_tp_errors
+                        )
+
+            # Add NuScenes Detection Score (NDS) based on mAP and mAPH
+            if map_instance.map_based_nds is not None:
+                metric_dict[f"T4MetricV2/{map_instance.map_based_nds.metric_prefix_name}_nds_{matching_mode}"] = (
+                    map_instance.map_based_nds.nds
+                )
+            if map_instance.medium_map_based_nds is not None:
+                metric_dict[
+                    f"T4MetricV2/{map_instance.medium_map_based_nds.metric_prefix_name}_nds_{matching_mode}"
+                ] = map_instance.medium_map_based_nds.nds
+            if map_instance.mapH_based_nds is not None:
+                metric_dict[f"T4MetricV2/{map_instance.mapH_based_nds.metric_prefix_name}_nds_{matching_mode}"] = (
+                    map_instance.mapH_based_nds.nds
+                )
+            if map_instance.medium_mapH_based_nds is not None:
+                metric_dict[
+                    f"T4MetricV2/{map_instance.medium_mapH_based_nds.metric_prefix_name}_nds_{matching_mode}"
+                ] = map_instance.medium_mapH_based_nds.nds
 
             total_num_preds = num_preds
 
@@ -1109,7 +1204,10 @@ class T4MetricV2(BaseMetric):
                             aggregated_metrics[evaluator_name]["metadata_label"][label_name] = {}
 
                         aggregated_metrics[evaluator_name]["metadata_label"][label_name][key] = value
-                    elif key.startswith("T4MetricV2/mAP_") or key.startswith("T4MetricV2/mAPH_"):
+                    elif key.startswith("T4MetricV2/tp-mean-error"):
+                        # These are TP error metrics, put them in the metrics section
+                        aggregated_metrics[evaluator_name]["tp_mean_errors"][key] = value
+                    elif key.startswith("T4MetricV2/mAP_") or key.startswith("T4MetricV2/mAPH_") or "nds" in key:
                         # These are overall metrics, put them in the metrics section
                         aggregated_metrics[evaluator_name]["metrics"][key] = value
                     else:
@@ -1351,7 +1449,7 @@ class T4MetricV2(BaseMetric):
         )
 
     def _parse_predictions_from_sample(
-        self, time: float, data_sample: Dict[str, Any], ground_truth_objects: FrameGroundTruth
+        self, time: float, data_sample: Dict[str, Any], ground_truth_objects: FrameGroundTruth, points
     ) -> PerceptionFrame:
         """
         Parses predicted objects from the data sample and creates a perception frame result.
@@ -1375,6 +1473,14 @@ class T4MetricV2(BaseMetric):
         scores: torch.Tensor = pred_3d.get("scores_3d", torch.empty(0)).cpu()
         # labels_3d: (N,) Tensor of predicted class indices
         labels: torch.Tensor = pred_3d.get("labels_3d", torch.empty(0)).cpu()
+
+        if len(bboxes):
+            points_cpu = points.cpu().numpy()
+            indices = box_np_ops.points_in_rbbox(points_cpu[:, :3], bboxes[:, :7])
+            num_points_in_gt = indices.sum(0)
+        else:
+            num_points_in_gt = np.array([])
+
         estimated_objects = [
             DynamicObject(
                 unix_time=time,
@@ -1385,8 +1491,9 @@ class T4MetricV2(BaseMetric):
                 velocity=(bbox[7], bbox[8], 0.0),
                 semantic_score=float(score),
                 semantic_label=self._convert_index_to_label(int(label)),
+                num_points_in_gt=int(num_points),
             )
-            for bbox, score, label in zip(bboxes, scores, labels)
+            for bbox, score, label, num_points in zip(bboxes, scores, labels, num_points_in_gt)
             if not (np.isnan(score) or np.isnan(label) or np.any(np.isnan(bbox)))
         ]
 

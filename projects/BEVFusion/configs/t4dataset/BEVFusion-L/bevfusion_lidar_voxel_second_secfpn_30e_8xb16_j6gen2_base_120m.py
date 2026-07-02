@@ -15,7 +15,7 @@ custom_imports["imports"] += ["autoware_ml.detection3d.datasets.transforms"]
 data_root = "data/t4dataset/"
 info_directory_path = "info/kokseang_2_8_1/"
 
-experiment_group_name = "bevfusion_lidar_intensity_2_8_3/j6gen2_base_normal_dense/" + _base_.dataset_type
+experiment_group_name = "bevfusion_lidar_intensity_2_8_no_time_lag_no_pretraining/j6gen2_base/" + _base_.dataset_type
 experiment_name = "lidar_voxel_second_secfpn_30e_8xb16_j6gen2_base_120m"
 work_dir = "work_dirs/" + experiment_group_name + "/" + experiment_name
 
@@ -29,11 +29,11 @@ model = dict(
     pts_voxel_encoder=dict(
         in_channels=len(_base_.lidar_sweep_dims),
         # min-max normalization for x, y, z, intensity, time_lag, where the max of time lag technically is two seeps (200 ms) here
-        min_norm_values=[_base_.point_cloud_range[0], _base_.point_cloud_range[1], _base_.point_cloud_range[2], 0.0, 0.0],
-        max_norm_values=[_base_.point_cloud_range[3], _base_.point_cloud_range[4], _base_.point_cloud_range[5], 255.0, 0.2],
+        min_norm_values=[_base_.point_cloud_range[0], _base_.point_cloud_range[1], _base_.point_cloud_range[2], 0.0],
+        max_norm_values=[_base_.point_cloud_range[3], _base_.point_cloud_range[4], _base_.point_cloud_range[5], 255.0],
     ),
     pts_middle_encoder=dict(
-        in_channels=50,
+        in_channels=32,
         sparse_shape=_base_.grid_size,
         dense_output_shapes=_base_.sparse_dense_output_shapes,
     ),
@@ -153,4 +153,4 @@ default_hooks = dict(
 )
 log_processor = dict(window_size=50)
 
-load_from = "work_dirs/bevfusion_lidar_2_8_2/base/T4Dataset/lidar_voxel_second_secfpn_50e_8xb16_base_120m/epoch_50.pth"
+# load_from = "work_dirs/bevfusion_lidar_2_8_2/base/T4Dataset/lidar_voxel_second_secfpn_50e_8xb16_base_120m/epoch_50.pth"

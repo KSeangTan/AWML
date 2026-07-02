@@ -22,8 +22,8 @@ eval_class_range = {
 
 # LiDAR parameters
 point_load_dim = 5  # x, y, z, intensity, ring_id
-point_use_dim = 5
-lidar_sweep_dims = [0, 1, 2, 3, 4]  # x, y, z, intensity, time_lag
+point_use_dim = 4
+lidar_sweep_dims = [0, 1, 2, 3]  # x, y, z, intensity, time_lag
 sweeps_num = 1
 
 train_pipeline = [
@@ -31,19 +31,19 @@ train_pipeline = [
         type="LoadPointsFromFile",
         coord_type="LIDAR",
         load_dim=point_load_dim,
-        use_dim=point_load_dim,
+        use_dim=point_use_dim,
         backend_args=backend_args,
     ),
-    dict(
-        type="LoadPointsFromMultiSweeps",
-        sweeps_num=sweeps_num,
-        load_dim=point_load_dim,
-        use_dim=lidar_sweep_dims,
-        pad_empty_sweeps=True,
-        remove_close=True,
-        backend_args=backend_args,
-        test_mode=False,
-    ),
+    # dict(
+    #     type="LoadPointsFromMultiSweeps",
+    #     sweeps_num=sweeps_num,
+    #     load_dim=point_load_dim,
+    #     use_dim=lidar_sweep_dims,
+    #     pad_empty_sweeps=True,
+    #     remove_close=True,
+    #     backend_args=backend_args,
+    #     test_mode=False,
+    # ),
     dict(type="LoadAnnotations3D", with_bbox_3d=True, with_label_3d=True, with_attr_label=False),
     dict(
         type="BEVFusionGlobalRotScaleTrans",
@@ -66,8 +66,8 @@ train_pipeline = [
             "barrier",
         ],
     ),
-		dict(type="ObjectRangeMinPointsFilter", range_radius=[0, 60], min_num_points=2),
-    dict(type="ObjectRangeMinPointsFilter", range_radius=[60, 130], min_num_points=1),
+	dict(type="ObjectRangeMinPointsFilter", range_radius=[0, 60], min_num_points=3),
+    dict(type="ObjectRangeMinPointsFilter", range_radius=[60, 130], min_num_points=2),
     dict(type="PointShuffle"),
     dict(
         type="Pack3DDetInputs",
@@ -103,19 +103,19 @@ test_pipeline = [
         type="LoadPointsFromFile",
         coord_type="LIDAR",
         load_dim=point_load_dim,
-        use_dim=point_load_dim,
+        use_dim=point_use_dim,
         backend_args=backend_args,
     ),
-    dict(
-        type="LoadPointsFromMultiSweeps",
-        sweeps_num=sweeps_num,
-        load_dim=point_load_dim,
-        use_dim=lidar_sweep_dims,
-        pad_empty_sweeps=True,
-        remove_close=True,
-        backend_args=backend_args,
-        test_mode=True,
-    ),
+    # dict(
+    #     type="LoadPointsFromMultiSweeps",
+    #     sweeps_num=sweeps_num,
+    #     load_dim=point_load_dim,
+    #     use_dim=lidar_sweep_dims,
+    #     pad_empty_sweeps=True,
+    #     remove_close=True,
+    #     backend_args=backend_args,
+    #     test_mode=True,
+    # ),
     dict(type="PointsRangeFilter", point_cloud_range=point_cloud_range),
     dict(
         type="Pack3DDetInputs",
