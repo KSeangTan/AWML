@@ -116,12 +116,13 @@ def collect_matched_pointcloud_counts(
                     if not _is_matched_pair(object_result, matching_mode, threshold):
                         continue
 
-                    pred_counts[evaluator_name][class_name].append(
-                        int(object_result.estimated_object.pointcloud_num)
-                    )
-                    gt_counts[evaluator_name][class_name].append(
-                        int(object_result.ground_truth_object.pointcloud_num)
-                    )
+                    pred_num = int(object_result.estimated_object.pointcloud_num)
+                    gt_num = int(object_result.ground_truth_object.pointcloud_num)
+                    if pred_num == 0 or gt_num == 0:
+                        continue
+
+                    pred_counts[evaluator_name][class_name].append(pred_num)
+                    gt_counts[evaluator_name][class_name].append(gt_num)
 
     return pred_counts, gt_counts
 
@@ -154,31 +155,6 @@ def compute_stats(counts: np.ndarray) -> Dict[str, float]:
     for p in STAT_PERCENTILES:
         stats[f"p{p}"] = float(np.percentile(counts, p))
     return stats
-
-
-def _dense_low_range_ticks(
-    hist_range: Tuple[float, float],
-    dense_upper: float,
-    n_dense: int = 20,
-    n_sparse: int = 10,
-) -> List[float]:
-    """Build tick positions with more ticks packed into the lower x-range.
-
-    Places `n_dense` evenly spaced ticks between the start of the range and
-    `dense_upper` (e.g. a percentile like p75), then a few coarser ticks from
-    `dense_upper` to the end of the range.
-    """
-    lo, hi = hist_range
-    dense_upper = min(max(dense_upper, lo), hi)
-
-    dense_ticks = np.linspace(lo, dense_upper, n_dense)
-    if dense_upper < hi:
-        sparse_ticks = np.linspace(dense_upper, hi, n_sparse + 1)[1:]
-    else:
-        sparse_ticks = np.array([])
-
-    ticks = np.unique(np.concatenate([dense_ticks, sparse_ticks]))
-    return ticks.tolist()
 
 
 def _format_stats_text(stats: Dict[str, float]) -> str:
@@ -236,15 +212,23 @@ def plot_histograms(
 
             upper = max_points if max_points is not None else int(np.max(counts))
             hist_range = (0, max(upper, 1))
+            # ax.hist(counts, bins=bins, range=hist_range, color="#1f77b4", edgecolor="white", linewidth=0.5)
+            # ax.set_xlim(hist_range)
+            # ax.xaxis.set_major_locator(plt.MaxNLocator(nbins=40))
+            # ax.set_title(f"{class_name} (n={counts.size})")
+            # ax.set_xlabel("num_pointclouds in matched prediction bbox")
+            # ax.set_ylabel("count")
+            # ax.grid(axis="y", alpha=0.3)
+            # ax.tick_params(axis="x", rotation=45)
             ax.hist(counts, bins=bins, range=hist_range, color="#1f77b4", edgecolor="white", linewidth=0.5)
             ax.set_xlim(hist_range)
-            tick_positions = _dense_low_range_ticks(hist_range, dense_upper=stats["p75"])
-            ax.xaxis.set_major_locator(plt.FixedLocator(tick_positions))
-            ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _pos: f"{x:.0f}"))
+            ax.set_yscale("log")
+            ax.set_ylim(bottom=0.8)  # keeps bins with count=1 visible instead of touching the axis floor
+            ax.xaxis.set_major_locator(plt.MaxNLocator(nbins=45))
             ax.set_title(f"{class_name} (n={counts.size})")
             ax.set_xlabel("num_pointclouds in matched prediction bbox")
-            ax.set_ylabel("count")
-            ax.grid(axis="y", alpha=0.3)
+            ax.set_ylabel("count (log scale)")
+            ax.grid(axis="y", which="both", alpha=0.3)
             ax.tick_params(axis="x", rotation=45)
 
             ax.text(
