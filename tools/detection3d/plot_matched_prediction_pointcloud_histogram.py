@@ -176,23 +176,39 @@ def collect_false_negative_counts(
             mode_results = nuscene_object_results.get(matching_mode)
             if mode_results is None:
                 continue
-
+            
+            ground_truth_frames = frame_result.frame_ground_truth.objects
             for label, threshold_map in mode_results.items():
+                label_gt_objects = [obj for obj in ground_truth_frames if obj.semantic_label.label.value == label.value]
                 class_name = label.value
                 threshold_key = _resolve_threshold_key(threshold_map, threshold)
                 if threshold_key is None:
                     continue
-
+                
+                matched_gt_objs = []
                 for object_result in threshold_map[threshold_key]:
-                    if not _is_unmatched_gt(object_result):
-                        continue
+                    if object_result.ground_truth_object is None:
+                        continue 
 
+                    if _is_matched_pair(object_result, matching_mode, threshold):
+                        if object_result.ground_truth_object is not None:
+                            matched_gt_objs.append(object_result.ground_truth_object)
+                            continue
+                     
                     gt_num = int(object_result.ground_truth_object.pointcloud_num)
                     if gt_num == 0:
                         continue
 
                     fn_counts[evaluator_name][class_name].append(gt_num)
+            
+                for gt_object in label_gt_objects:
+                    if gt_object.pointcloud_num == 0:
+                        continue
+                    
+                    if gt_object in matched_gt_objs:
+                        continue
 
+                    fn_counts[evaluator_name][class_name].append(int(gt_object.pointcloud_num))
     return fn_counts
 
 
