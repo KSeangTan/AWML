@@ -16,6 +16,7 @@ from mmdet.models.utils import multi_apply
 from mmengine.logging import print_log
 from mmengine.structures import InstanceData
 from torch import nn
+from torch.nn import functional as F
 
 
 def clip_sigmoid(x, eps=1e-4):
@@ -65,9 +66,14 @@ class BEVFusionHead(nn.Module):
         # loss
         loss_iou=None,
         loss_bev_corners=None,
+        loss_giou=None,
         loss_cls=dict(type="mmdet.GaussianFocalLoss", reduction="mean"),
         loss_bbox=dict(type="mmdet.L1Loss", reduction="mean"),
         loss_heatmap=dict(type="mmdet.GaussianFocalLoss", reduction="mean"),
+        loss_direction_ignore_labels=None,
+        loss_orientation_ignore_labels=None,
+        loss_direction=None,
+        loss_orientation=None,
         # others
         train_cfg=None,
         test_cfg=None,
@@ -92,9 +98,14 @@ class BEVFusionHead(nn.Module):
         self.loss_cls = MODELS.build(loss_cls)
         self.loss_iou = MODELS.build(loss_iou) if loss_iou is not None else None
         self.loss_bev_corners = MODELS.build(loss_bev_corners) if loss_bev_corners is not None else None
+        self.loss_giou = MODELS.build(loss_giou) if loss_giou is not None else None
+        self.loss_direction = MODELS.build(loss_direction) if loss_direction is not None else None
+        self.loss_orientation = MODELS.build(loss_orientation) if loss_orientation is not None else None
         self.loss_bbox = MODELS.build(loss_bbox)
         self.loss_heatmap = MODELS.build(loss_heatmap)
         self.share_conv_out_channels = hidden_channel
+        self.loss_direction_ignore_labels = loss_direction_ignore_labels
+        self.loss_orientation_ignore_labels = loss_orientation_ignore_labels
 
         self.bbox_coder = build_bbox_coder(bbox_coder)
         self.sampling = False
@@ -217,10 +228,29 @@ class BEVFusionHead(nn.Module):
             ]
         else:
             self.partial_ignore_labels = None
+        
+        self.code_weights = self.train_cfg.get("code_weights", None)
+        self.code_orientation_weights = []
+        if self.loss_orientation is not None:
+            self.code_orientation_weights = [self.code_weights[6]]
+            # self.code_weights.pop(6)
+            self.code_weights.pop(6)  # Remove the orientation weights from the main code weights
+
+        if self.loss_direction_ignore_labels is not None:
+            self.loss_direction_ignore_label_indices = [self.class_name_to_indices[class_name] for class_name in self.loss_direction_ignore_labels] 
+        else:
+            self.loss_direction_ignore_label_indices = None 
+        
+        if self.loss_orientation_ignore_labels is not None:
+            self.loss_orientation_ignore_label_indices = [self.class_name_to_indices[class_name] for class_name in self.loss_orientation_ignore_labels]
+        else:
+            self.loss_orientation_ignore_label_indices = None
 
         print_log(f"BEVFusionHead Partial ignore labels: {self.partial_ignore_labels}, dense heatmap pooling classes: \
         {self.dense_heatmap_pooling_classes}, class_names: {self.class_names}, \
-        local_concat_class_remapping: {self.local_concat_class_remapping}", logger="current")
+        local_concat_class_remapping: {self.local_concat_class_remapping}, \
+        loss_direction_ignore_label_indices: {self.loss_direction_ignore_label_indices} \
+        loss_orientation_ignore_label_indices: {self.loss_orientation_ignore_label_indices}", logger="current")
 
     def create_2D_grid(self, x_size, y_size):
         meshgrid = [[0, x_size - 1, x_size], [0, y_size - 1, y_size]]
@@ -428,8 +458,12 @@ class BEVFusionHead(nn.Module):
             batch_dim = preds_dict[0]["dim"][..., -self.num_proposals :]
             batch_rot = preds_dict[0]["rot"][..., -self.num_proposals :]
             batch_vel = None
+            batch_direction = None      
             if "vel" in preds_dict[0]:
                 batch_vel = preds_dict[0]["vel"][..., -self.num_proposals :]
+            
+            if "direction" in preds_dict[0]:
+                batch_direction = F.softmax(preds_dict[0]["direction"][..., -self.num_proposals :], dim=1)
 
             temp = self.bbox_coder.decode(
                 batch_score,
@@ -438,6 +472,7 @@ class BEVFusionHead(nn.Module):
                 batch_center,
                 batch_height,
                 batch_vel,
+                batch_direction,
                 filter=True,
             )
 
@@ -563,6 +598,8 @@ class BEVFusionHead(nn.Module):
         matched_ious = np.mean(res_tuple[6])
         heatmap = torch.cat(res_tuple[7], dim=0)
         heatmap_weights = torch.cat(res_tuple[8], dim=0)
+        direction_targets = torch.cat(res_tuple[9], dim=0)
+
         return (
             labels,
             label_weights,
@@ -573,6 +610,7 @@ class BEVFusionHead(nn.Module):
             matched_ious,
             heatmap,
             heatmap_weights,
+            direction_targets
         )
 
     def get_targets_single(self, gt_instances_3d, preds_dict, batch_idx, metadata):
@@ -607,9 +645,15 @@ class BEVFusionHead(nn.Module):
             vel = copy.deepcopy(preds_dict["vel"].detach())
         else:
             vel = None
+        
+        if "direction" in preds_dict.keys():
+            # direction = copy.deepcopy(preds_dict["direction"].sigmoid().detach())
+            direction = copy.deepcopy(F.softmax(preds_dict["direction"], dim=1).detach())
+        else:
+            direction = None
 
         boxes_dict = self.bbox_coder.decode(
-            score, rot, dim, center, height, vel, filter=False
+            score, rot, dim, center, height, vel, direction, filter=False
         )  # decode the prediction to real world metric bbox
         bboxes_tensor = boxes_dict[0]["bboxes"]
         gt_bboxes_tensor = gt_bboxes_3d.tensor.to(score.device)
@@ -668,6 +712,7 @@ class BEVFusionHead(nn.Module):
         # 3. Create target for loss computation
         bbox_targets = torch.zeros([num_proposals, self.bbox_coder.code_size]).to(center.device)
         bbox_weights = torch.zeros([num_proposals, self.bbox_coder.code_size]).to(center.device)
+        bbox_direction_targets = torch.zeros([num_proposals, 1], dtype=torch.long).to(center.device)
         ious = assign_result_ensemble.max_overlaps
         ious = torch.clamp(ious, min=0.0, max=1.0)
         labels = bboxes_tensor.new_zeros(num_proposals, dtype=torch.long)
@@ -679,10 +724,11 @@ class BEVFusionHead(nn.Module):
         # both pos and neg have classification loss, only pos has regression
         # and iou loss
         if len(pos_inds) > 0:
-            pos_bbox_targets = self.bbox_coder.encode(sampling_result.pos_gt_bboxes)
+            pos_bbox_targets, pos_bbox_direction_targets = self.bbox_coder.encode(sampling_result.pos_gt_bboxes)
 
             bbox_targets[pos_inds, :] = pos_bbox_targets
             bbox_weights[pos_inds, :] = 1.0
+            bbox_direction_targets[pos_inds, :] = pos_bbox_direction_targets
 
             if gt_labels_3d is None:
                 labels[pos_inds] = 1
@@ -747,6 +793,7 @@ class BEVFusionHead(nn.Module):
             float(mean_iou),
             heatmap[None],
             heatmap_weights[None],
+            bbox_direction_targets[None]
         )
 
     def loss(self, batch_feats, batch_data_samples):
@@ -782,6 +829,7 @@ class BEVFusionHead(nn.Module):
             matched_ious,
             heatmap,
             heatmap_weights,
+            bbox_direction_targets
         ) = self.get_targets(batch_gt_instances_3d, preds_dicts[0], batch_input_metas)
         if hasattr(self, "on_the_image_mask"):
             label_weights = label_weights * self.on_the_image_mask
@@ -863,30 +911,91 @@ class BEVFusionHead(nn.Module):
             layer_dim = preds_dict["dim"][
                 ...,
                 idx_layer * self.num_proposals : (idx_layer + 1) * self.num_proposals,
-            ]
-            preds = torch.cat([layer_center, layer_height, layer_dim, layer_rot], dim=1).permute(
-                0, 2, 1
-            )  # [BS, num_proposals, code_size]
+            ]						
             if "vel" in preds_dict.keys():
                 layer_vel = preds_dict["vel"][
                     ...,
                     idx_layer * self.num_proposals : (idx_layer + 1) * self.num_proposals,
                 ]
-                preds = torch.cat([layer_center, layer_height, layer_dim, layer_rot, layer_vel], dim=1).permute(
-                    0, 2, 1
-                )  # [BS, num_proposals, code_size]
-            code_weights = self.train_cfg.get("code_weights", None)
-            layer_bbox_weights = bbox_weights[
-                :,
-                idx_layer * self.num_proposals : (idx_layer + 1) * self.num_proposals,
-                :,
-            ]
-            layer_reg_weights = layer_bbox_weights * layer_bbox_weights.new_tensor(code_weights)  # noqa: E501
-            layer_bbox_targets = bbox_targets[
-                :,
-                idx_layer * self.num_proposals : (idx_layer + 1) * self.num_proposals,
-                :,
-            ]
+                
+                if self.loss_orientation is not None:
+                    preds = torch.cat([layer_center, layer_height, layer_dim, layer_vel], dim=1).permute(
+                            0, 2, 1
+                    )  # [BS, num_proposals, code_size - 2]
+                    preds_orientation = layer_rot.permute(0, 2, 1)  # [BS, num_proposals, 2]
+                else:
+                    preds = torch.cat([layer_center, layer_height, layer_dim, layer_rot, layer_vel], dim=1).permute(
+                            0, 2, 1
+                    )  # [BS, num_proposals, code_size - 2]
+                    preds_orientation = None
+            else:
+                if self.loss_orientation is not None:
+                    preds = torch.cat([layer_center, layer_height, layer_dim], dim=1).permute(
+                            0, 2, 1
+                    )  # [BS, num_proposals, code_size - 2]
+                    preds_orientation = layer_rot.permute(0, 2, 1)  # [BS, num_proposals, 2]
+                else:
+                    preds = torch.cat([layer_center, layer_height, layer_dim, layer_rot], dim=1).permute(
+                            0, 2, 1
+                    )  # [BS, num_proposals, code_size]
+                    preds_orientation = None      
+
+            if self.loss_orientation is not None:
+                layer_rot_ending_index = 7 
+                layer_bbox_channels = bbox_weights.shape[-1]
+                layer_bbox_orientation_weights = bbox_weights[
+                    :,
+                    idx_layer * self.num_proposals : (idx_layer + 1) * self.num_proposals,
+                    6:layer_rot_ending_index,
+                ]
+                layer_bbox_weights = torch.cat(
+                    [
+                        bbox_weights[
+                            :,
+                            idx_layer * self.num_proposals : (idx_layer + 1) * self.num_proposals,
+                            0:6,
+                        ],
+                        bbox_weights[
+                            :,
+                            idx_layer * self.num_proposals : (idx_layer + 1) * self.num_proposals,
+                            layer_rot_ending_index:layer_bbox_channels,
+                        ], 
+                    ], dim=-1
+                )
+                layer_bbox_orientation_targets = bbox_targets[
+                    :,
+                    idx_layer * self.num_proposals : (idx_layer + 1) * self.num_proposals,
+                    6:layer_rot_ending_index,
+                ]
+                layer_bbox_targets = torch.cat(
+                    [
+                        bbox_targets[
+                            :,
+                            idx_layer * self.num_proposals : (idx_layer + 1) * self.num_proposals,
+                            0:6,
+                        ],
+                        bbox_targets[
+                            :,
+                            idx_layer * self.num_proposals : (idx_layer + 1) * self.num_proposals,
+                            layer_rot_ending_index:layer_bbox_channels,
+                        ],
+                    ], dim=-1
+                )
+            else:
+                layer_bbox_orientation_weights = None
+                layer_bbox_orientation_targets = None     
+                layer_bbox_weights = bbox_weights[
+                    :,
+                    idx_layer * self.num_proposals : (idx_layer + 1) * self.num_proposals,
+                    :,
+                ]
+                layer_bbox_targets = bbox_targets[
+                    :,
+                    idx_layer * self.num_proposals : (idx_layer + 1) * self.num_proposals,
+                    :,
+                ]
+
+            layer_reg_weights = layer_bbox_weights * layer_bbox_weights.new_tensor(self.code_weights)  # noqa: E501
             layer_loss_bbox = self.loss_bbox(preds, layer_bbox_targets, layer_reg_weights, avg_factor=max(num_pos, 1))
 
             loss_dict[f"{prefix}_loss_cls"] = layer_loss_cls
@@ -911,10 +1020,102 @@ class BEVFusionHead(nn.Module):
             if self.loss_bev_corners is not None:
                 # [BS, num_proposals]
                 layer_bbox_bev_corners_weight = layer_bbox_weights[:, :, 0]
+                # `layer_labels` is flattened to [BS * num_proposals] for loss_cls, but the
+                # corner loss expects labels shaped [BS, num_proposals] to broadcast against
+                # preds/targets of shape [BS, num_proposals, code_size].
+                layer_corner_labels = layer_labels.view(preds.shape[0], preds.shape[1])
                 loss_bev_corners = self.loss_bev_corners(
-                    preds, layer_bbox_targets, layer_labels, layer_bbox_bev_corners_weight, avg_factor=max(num_pos, 1)
+                    preds,
+                    layer_bbox_targets,
+                    layer_corner_labels,
+                    layer_bbox_bev_corners_weight,
+                    avg_factor=max(num_pos, 1),
                 )
                 loss_dict[f"{prefix}_loss_bev_corners"] = loss_bev_corners
+            
+            if self.loss_giou is not None:
+                # [BS, num_proposals]
+                layer_bbox_giou_weight = layer_bbox_weights[:, :, 0]
+                # `layer_labels` is flattened to [BS * num_proposals] for loss_cls, but the
+                # corner loss expects labels shaped [BS, num_proposals] to broadcast against
+                # preds/targets of shape [BS, num_proposals, code_size].
+                layer_giou_labels = layer_labels.view(preds.shape[0], preds.shape[1])
+                loss_giou = self.loss_giou(
+                    preds,
+                    layer_bbox_targets,
+                    preds_orientation,
+                    layer_bbox_orientation_targets,
+                    layer_giou_labels,
+                    layer_bbox_giou_weight,
+                    avg_factor=max(num_pos, 1),
+                )
+                loss_dict[f"{prefix}_loss_giou"] = loss_giou
+                
+            if self.loss_orientation is not None:
+                layer_orientation_reg_weights = layer_bbox_orientation_weights * layer_bbox_orientation_weights.new_tensor(self.code_orientation_weights)  # noqa: E501
+                layer_orientation_num_pos = num_pos
+                if self.loss_orientation_ignore_label_indices is not None:
+                    # [BS, num_proposals]
+                    layer_orientation_labels = layer_labels.view(preds.shape[0], preds.shape[1])
+                    # 1.0 for labels whose orientation loss is kept, 0.0 for ignored labels
+                    layer_orientation_mask = ~torch.isin(
+                        layer_orientation_labels,
+                        layer_orientation_labels.new_tensor(self.loss_orientation_ignore_label_indices),
+                    )
+                    # [BS, num_proposals, 1] to broadcast over the orientation code dim
+                    layer_orientation_reg_weights = layer_orientation_reg_weights * layer_orientation_mask.unsqueeze(
+                        -1
+                    ).to(layer_orientation_reg_weights.dtype)
+                    layer_orientation_num_pos = (layer_orientation_reg_weights[:, :, 0] > 0.0).sum().sum()
+                
+                # preds_orientation = torch.sin(preds_orientation - layer_bbox_orientation_targets)
+                # orientation_targets = torch.zeros_like(preds_orientation)
+                layer_orientation_losses = self.loss_orientation(
+                    preds_orientation,
+                    layer_bbox_orientation_targets,
+                    layer_orientation_reg_weights,
+                    avg_factor=max(layer_orientation_num_pos, 1),
+                )
+                loss_dict[f"{prefix}_loss_orientation"] = layer_orientation_losses
+                
+            if self.loss_direction is not None:
+                layer_direction = preds_dict["direction"][
+                    ...,
+                    idx_layer * self.num_proposals : (idx_layer + 1) * self.num_proposals,
+                ]
+                layer_direction = layer_direction.permute(0, 2, 1)  # [BS, num_proposals, 4]
+                layer_direction = layer_direction.reshape(-1, 4) # [BS * num_proposals, 4]
+                layer_bbox_direction_targets = bbox_direction_targets[
+                    :,
+                    idx_layer * self.num_proposals : (idx_layer + 1) * self.num_proposals,
+                ] # [BS, num_proposals]
+                layer_bbox_direction_targets = layer_bbox_direction_targets.reshape(-1) # [BS * num_proposals]
+                # [BS, num_proposals]        
+                layer_direction_weights = layer_bbox_weights[:, :, 0]
+                layer_direction_weights = layer_direction_weights.reshape(-1) # [BS * num_proposals]        
+                layer_direction_num_pos = num_pos
+                if self.loss_direction_ignore_label_indices is not None:
+                    # [BS, num_proposals]
+                    layer_direction_labels = layer_labels.view(preds.shape[0], preds.shape[1])
+                    # 1.0 for labels whose direction loss is kept, 0.0 for ignored labels
+                    layer_direction_mask = ~torch.isin(
+                        layer_direction_labels,
+                        layer_direction_labels.new_tensor(self.loss_direction_ignore_label_indices),
+                    )
+                    # [BS * num_proposals, 1] to match the flattened direction weights
+                    layer_direction_mask = layer_direction_mask.reshape(-1)
+                    layer_direction_weights = layer_direction_weights * layer_direction_mask.to(
+                        layer_direction_weights.dtype
+                    )
+                    layer_direction_num_pos = (layer_direction_weights > 0.0).sum()
+
+                layer_direction_losses = self.loss_direction(
+                    layer_direction,
+                    layer_bbox_direction_targets,
+                    layer_direction_weights,
+                    avg_factor=max(layer_direction_num_pos, 1),
+                )
+                loss_dict[f"{prefix}_loss_direction"] = layer_direction_losses
 
         loss_dict["matched_ious"] = layer_loss_cls.new_tensor(matched_ious)
 

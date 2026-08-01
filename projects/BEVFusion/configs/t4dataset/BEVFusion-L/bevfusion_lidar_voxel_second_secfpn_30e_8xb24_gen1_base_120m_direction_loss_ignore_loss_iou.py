@@ -16,7 +16,7 @@ data_root = "data/t4dataset/"
 info_directory_path = "info/kokseang_2_9_0/"
 
 experiment_group_name = "bevfusion_lidar_2_9_0/gen1_base/" + _base_.dataset_type
-experiment_name = "lidar_voxel_second_secfpn_30e_8xb24_gen1_base_120m_loss_bev_corners_no_gt_diag_0_10"
+experiment_name = "lidar_voxel_second_secfpn_30e_8xb24_gen1_base_120m_direction_loss_ignore_loss_iou"
 work_dir = "work_dirs/" + experiment_group_name + "/" + experiment_name
 
 # model parameter
@@ -52,14 +52,30 @@ model = dict(
         bbox_coder=dict(
             pc_range=_base_.point_cloud_range[0:2],
             voxel_size=_base_.voxel_size[0:2],
+            circle_orientation=False,
+            direction_sigmoid_threshold=0.5
         ),
         partial_ignore_labels=["traffic_cone", "barrier"],
         loss_heatmap=dict(
             reduction="none",
         ),
-        loss_bev_corners=dict(
+        loss_orientation_ignore_labels=["traffic_cone"],
+        loss_direction_ignore_labels=["barrier", "traffic_cone"],
+        loss_orientation=dict(_delete_=True, type="mmdet.SmoothL1Loss", reduction="mean", loss_weight=0.25, beta=0.10),
+        # loss_direction=dict(_delete_=True, type="CustomBCEWithLogitsLoss", reduction="mean", loss_weight=1.5),
+        loss_direction=dict(
             _delete_=True,
-            type="BEVCornerLoss",
+            type="mmdet.FocalLoss",
+            use_sigmoid=True,
+            gamma=2.0,
+            alpha=0.25,
+            reduction="mean",
+            loss_weight=1.0,
+        ),
+        common_heads=dict(center=[2, 2], height=[1, 2], dim=[3, 2], rot=[2, 2], vel=[2, 2], direction=[1, 2]),
+        loss_giou=dict(
+            _delete_=True,
+            type="RotatedBEVGIOULoss",
             out_size_factor=_base_.out_size_factor,
             voxel_size=_base_.voxel_size[0:2],
             pc_range=_base_.point_cloud_range[0:2],
@@ -68,8 +84,10 @@ model = dict(
             barrier_label_index=6,
             loss_weight=0.10,
             reduction="mean",
+            giou=False,
         ),
-    ),
+    ), 
+
 )
 
 # Dataset parameters

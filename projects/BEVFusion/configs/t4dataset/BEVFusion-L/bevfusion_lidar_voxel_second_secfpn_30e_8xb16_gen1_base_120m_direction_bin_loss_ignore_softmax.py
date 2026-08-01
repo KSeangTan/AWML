@@ -3,7 +3,7 @@ _base_ = [
     "../../../../../autoware_ml/configs/detection3d/dataset/t4dataset/gen1_base.py",
     "../default/pipelines/default_lidar_120m.py",
     "../default/models/default_lidar_second_secfpn_120m.py",
-    "../default/schedulers/default_30e_8xb24_adamw_cosine.py",
+    "../default/schedulers/default_30e_8xb16_adamw_cosine.py",
     "../default/default_misc.py",
 ]
 
@@ -16,7 +16,7 @@ data_root = "data/t4dataset/"
 info_directory_path = "info/kokseang_2_9_0/"
 
 experiment_group_name = "bevfusion_lidar_2_9_0/gen1_base/" + _base_.dataset_type
-experiment_name = "lidar_voxel_second_secfpn_30e_8xb24_gen1_base_120m_loss_bev_corners_no_gt_diag_0_10"
+experiment_name = "lidar_voxel_second_secfpn_30e_8xb16_gen1_base_120m_direction_bin_loss_ignore_softmax"
 work_dir = "work_dirs/" + experiment_group_name + "/" + experiment_name
 
 # model parameter
@@ -43,6 +43,8 @@ model = dict(
             point_cloud_range=_base_.point_cloud_range,
             grid_size=_base_.grid_size,
             voxel_size=_base_.voxel_size,
+			# (x, y, z, length, width, height, residual yaw_sin, vx, vy)
+			code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2],
         ),
         test_cfg=dict(
             grid_size=_base_.grid_size,
@@ -52,24 +54,28 @@ model = dict(
         bbox_coder=dict(
             pc_range=_base_.point_cloud_range[0:2],
             voxel_size=_base_.voxel_size[0:2],
+            circle_orientation=False,
+			code_size=9,
         ),
         partial_ignore_labels=["traffic_cone", "barrier"],
         loss_heatmap=dict(
             reduction="none",
         ),
-        loss_bev_corners=dict(
+        loss_orientation_ignore_labels=["traffic_cone"],
+        loss_direction_ignore_labels=["barrier", "traffic_cone"],
+        # loss_orientation=dict(_delete_=True, type="mmdet.L1Loss", reduction="mean", loss_weight=0.25),
+        loss_orientation=dict(_delete_=True, type="mmdet.SmoothL1Loss", reduction="mean", loss_weight=0.25, beta=0.10),
+        # loss_direction=dict(_delete_=True, type="CustomBCEWithLogitsLoss", reduction="mean", loss_weight=1.5),
+        loss_direction=dict(
             _delete_=True,
-            type="BEVCornerLoss",
-            out_size_factor=_base_.out_size_factor,
-            voxel_size=_base_.voxel_size[0:2],
-            pc_range=_base_.point_cloud_range[0:2],
-            gt_diagonal_norm=False,
-            cone_label_index=5,
-            barrier_label_index=6,
-            loss_weight=0.10,
+            type="mmdet.CrossEntropyLoss",
+            use_sigmoid=False, 
             reduction="mean",
+            loss_weight=0.25,
         ),
-    ),
+        common_heads=dict(center=[2, 2], height=[1, 2], dim=[3, 2], rot=[1, 2], vel=[2, 2], direction=[4, 2]),
+    ), 
+
 )
 
 # Dataset parameters

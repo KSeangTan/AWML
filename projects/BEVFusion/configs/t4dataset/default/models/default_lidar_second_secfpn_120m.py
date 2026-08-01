@@ -119,8 +119,11 @@ model = dict(
         ),
         loss_iou=None,
         loss_bev_corners=None,
+        loss_giou=None,
         loss_heatmap=dict(type="mmdet.GaussianFocalLoss", reduction="none", loss_weight=1.0),
         loss_bbox=dict(type="mmdet.L1Loss", reduction="mean", loss_weight=0.25),
+        loss_orientation=None,
+        loss_direction=None,
         # partial_
         partial_ignore_labels=["traffic_cone", "barrier"],
     ),
