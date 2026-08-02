@@ -39,7 +39,6 @@ class TransFusionBBoxCoder(BaseBBoxCoder):
         voxel_size,
         num_orientation_bins=4,
         orientation_bin_offset=torch.pi / 4,    
-        circle_orientation=True,
         post_center_range=None,
         score_threshold=None,
         code_size=8,
@@ -49,7 +48,6 @@ class TransFusionBBoxCoder(BaseBBoxCoder):
         self.voxel_size = voxel_size
         self.post_center_range = post_center_range
         self.score_threshold = score_threshold
-        self.circle_orientation = circle_orientation
         self.code_size = code_size
         self.num_orientation_bins = num_orientation_bins
         self.orientation_bin_offset = orientation_bin_offset 
@@ -64,37 +62,31 @@ class TransFusionBBoxCoder(BaseBBoxCoder):
         targets[:, 5] = dst_boxes[:, 5].log()
         # bottom center to gravity center
         targets[:, 2] = dst_boxes[:, 2] + dst_boxes[:, 5] * 0.5
-        direction_targets = None
-        if not self.circle_orientation:
-            yaws = dst_boxes[:, 6].clone()
-            # Fold the yaw into [0, 2 * pi) once, then derive BOTH the bin index and the
-            # residual from that same folded value. Deriving the residual from the raw
-            # `yaws` instead leaves a 2 * pi offset on every box whose yaw falls below
-            # `orientation_bin_offset`, which puts the regression target near -2 * pi
-            # instead of inside [-bin_size / 2, bin_size / 2).
-            shifted_yaws = limit_period(yaws - self.orientation_bin_offset, offset=0.0, period=2 * torch.pi)
-            # values in [0, num_orientation_bins - 1]; clamp guards the case where
-            # `shifted_yaws` lands on 2 * pi through floating point rounding.
-            direction_targets = torch.floor(shifted_yaws / self.bin_size).long().clamp(
-                min=0, max=self.num_orientation_bins - 1
-            )
-            # value in [-bin_size / 2, bin_size / 2), i.e. [-pi/4, pi/4) for 4 bins
-            residual_yaws = shifted_yaws - (direction_targets.float() * self.bin_size + self.bin_size / 2)
-            targets[:, 6] = residual_yaws
-        else:
-            targets[:, 6] = torch.sin(dst_boxes[:, 6])
-            targets[:, 7] = torch.cos(dst_boxes[:, 6])
         
-        if self.code_size == 9:
-            targets[:, 7:9] = dst_boxes[:, 7:]
-        elif self.code_size == 10:
-            targets[:, 8:10] = dst_boxes[:, 7:]
+        yaws = dst_boxes[:, 6].clone()
+        # Fold the yaw into [0, 2 * pi) once, then derive BOTH the bin index and the
+        # residual from that same folded value. Deriving the residual from the raw
+        # `yaws` instead leaves a 2 * pi offset on every box whose yaw falls below
+        # `orientation_bin_offset`, which puts the regression target near -2 * pi
+        # instead of inside [-bin_size / 2, bin_size / 2).
+        shifted_yaws = limit_period(yaws - self.orientation_bin_offset, offset=0.0, period=2 * torch.pi)
+        # values in [0, num_orientation_bins - 1]; clamp guards the case where
+        # `shifted_yaws` lands on 2 * pi through floating point rounding.
+        direction_targets = torch.floor(shifted_yaws / self.bin_size).long().clamp(
+            min=0, max=self.num_orientation_bins - 1
+        )
+        # value in [-bin_size / 2, bin_size / 2), i.e. [-pi/4, pi/4) for 4 bins
+        residual_yaws = shifted_yaws - (direction_targets.float() * self.bin_size + self.bin_size / 2)
+        
+        if self.code_size == 8:
+            targets[:, 6:8] = dst_boxes[:, 7:]
                 
         # if not self.circle_orientation:
         #     # Get the direction, where 0 means front and 1 means back. The direction is used to determine the orientation of the box.
         #     is_front = (dst_boxes[:, 6] > -torch.pi / 2) & (dst_boxes[:, 6] <= torch.pi / 2)
         #     direction_targets[:, 0] = (~is_front).to(direction_targets.dtype)
-        return targets, direction_targets.unsqueeze(-1) if direction_targets is not None else None
+        return targets, residual_yaws.unsqueeze(-1), direction_targets.unsqueeze(-1)
+
 
     def decode(self, heatmap, rot, dim, center, height, vel, directions, filter=False):
         """Decode bboxes.
@@ -128,30 +120,24 @@ class TransFusionBBoxCoder(BaseBBoxCoder):
         dim[:, 1, :] = dim[:, 1, :].exp()
         dim[:, 2, :] = dim[:, 2, :].exp()
         height = height - dim[:, 2:3, :] * 0.5  # gravity center to bottom center
-        if not self.circle_orientation:
-            yaw_pred = rot[:, 0:1, :]  # [BS, 1, num_proposals]
-            # keepdim so this stays [BS, 1, num_proposals]. Without it the index is
-            # [BS, num_proposals], which broadcasts against yaw_pred to
-            # [BS, BS, num_proposals] -- pairing every sample's residual with every
-            # other sample's bin, and widening the decoded box tensor so that the
-            # velocity columns shift out of place.
-            final_directions = directions.argmax(dim=1, keepdim=True)
-            # The residual is only meaningful inside its own bin, so clamp before
-            # un-binning. This also keeps a residual head that has drifted (the
-            # sin() training objective is satisfied at both r and r + pi) from
-            # producing a full half-turn error.
-            yaw_pred = yaw_pred.clamp(min=-self.bin_size / 2, max=self.bin_size / 2)
-            # Direct inverse of encode(). Wrapping the residual with limit_period over
-            # bin_size instead would snap any prediction that drifts outside
-            # [-bin_size / 2, bin_size / 2) into the neighbouring bin, turning a small
-            # regression error into a discontinuous bin_size jump.
-            rot = yaw_pred + self.orientation_bin_offset + (
-                final_directions.float() * self.bin_size + self.bin_size / 2
-            )
-            rot = limit_period(rot, offset=0.5, period=2 * torch.pi)  # limit to [-pi, pi)
-        else:
-            rots, rotc = rot[:, 0:1, :], rot[:, 1:2, :]
-            rot = torch.atan2(rots, rotc)
+        yaw_pred = rot[:, 0:1, :]  # [BS, 1, num_proposals]
+        # keepdim so this stays [BS, 1, num_proposals]. Without it the index is
+        # [BS, num_proposals], which broadcasts against yaw_pred to
+        # [BS, BS, num_proposals] -- pairing every sample's residual with every
+        # other sample's bin, and widening the decoded box tensor so that the
+        # velocity columns shift out of place.
+        final_directions = directions.argmax(dim=1, keepdim=True)
+        # The residual is only meaningful inside its own bin, so clamp before
+        # un-binning. 
+        yaw_pred = yaw_pred.clamp(min=-self.bin_size / 2, max=self.bin_size / 2)
+        # Direct inverse of encode(). Wrapping the residual with limit_period over
+        # bin_size instead would snap any prediction that drifts outside
+        # [-bin_size / 2, bin_size / 2) into the neighbouring bin, turning a small
+        # regression error into a discontinuous bin_size jump.
+        rot = yaw_pred + self.orientation_bin_offset + (
+            final_directions.float() * self.bin_size + self.bin_size / 2
+        )
+        rot = limit_period(rot, offset=0.5, period=2 * torch.pi)  # limit to [-pi, pi)
         
         if vel is None:
             final_box_preds = torch.cat([center, height, dim, rot], dim=1).permute(0, 2, 1)

@@ -9,146 +9,48 @@ from torch import Tensor
 from torch.nn import functional as F
 import torch 
 
+from .utils import limit_period
 
 @weighted_loss
-def bce_with_logits_loss(pred: Tensor, target: Tensor, pos_weight: Optional[Tensor] = None) -> Tensor:
-    """ """
-
-    losses = F.binary_cross_entropy_with_logits(
-        pred,
-        target,
-        None,  # Always None since the weight will be used in the weighted_loss wrapper
-        pos_weight=pos_weight,
-        reduction="none",  # Always none since the reduction will happen in the weighted_loss wrapper
-    )
-    return losses
-
-
-@weighted_loss
-def corner_l1_losses(pred: Tensor, target: Tensor, norm_values: Optional[Tensor] = None, barrier_masks=None) -> Tensor:
-    """ """
-
-    # Shape: [B, N, 4, 2] -> [B, N, 4] -> [B, N]
-    direct_losses = (pred - target).abs().sum(dim=-1).mean(dim=-1)
-
-    losses = direct_losses
-    # Branch out barrier if set
-    if barrier_masks is not None:
-
-        # [c0, c1, c2, c3] -> [c2, c3, c0, c1]
-        target_shifted_180 = torch.roll(
-            target,
-            shifts=2,
-            dims=-2,
-        )
-
-        shifted_losses = (pred - target_shifted_180).abs().sum(dim=-1).mean(dim=-1)  # [B, N]
-
-        barrier_losses = torch.minimum(
-            direct_losses,
-            shifted_losses,
-        )
-
-        # Use symmetry-aware loss only for barriers.
-        losses = torch.where(
-            barrier_masks,
-            barrier_losses,
-            direct_losses,
-        )
-
-    if norm_values is not None:
-        losses = losses / norm_values
-    return losses
-
-
-@weighted_loss
-def giou_loss(pred: Tensor, target: Tensor) -> Tensor:
+def iou_loss(pred: Tensor, target: Tensor) -> Tensor:
     """ """
 
     losses = target - pred 
     return losses
 
-
 @MODELS.register_module()
-class CustomBCEWithLogitsLoss(nn.Module):
-    """BCEWithLogitsLoss"""
-
-    def __init__(self, loss_weight=None, reduction="mean", pos_weight=None) -> None:
-        super().__init__()
-        self.loss_weight = loss_weight
-        self.reduction = reduction
-        self.pos_weight = pos_weight
-
-    def forward(
-        self,
-        pred: Tensor,
-        target: Tensor,
-        weight: Optional[Tensor] = None,
-        avg_factor: Optional[Union[int, float]] = None,
-        reduction_override: Optional[str] = None,
-    ) -> Tensor:
-        """Forward function.
-
-        If you want to manually determine which positions are
-        positive samples, you can set the pos_index and pos_label
-        parameter. Currently, only the CenterNet update version uses
-        the parameter.
-
-        Args:
-            pred (torch.Tensor): The prediction. The shape is (N, num_classes).
-            target (torch.Tensor): The learning target of the prediction
-                in gaussian distribution. The shape is (N, num_classes).
-            pos_inds (torch.Tensor): The positive sample index.
-                Defaults to None.
-            pos_labels (torch.Tensor): The label corresponding to the positive
-                sample index. Defaults to None.
-            weight (torch.Tensor, optional): The weight of loss for each
-                prediction. Defaults to None.
-            avg_factor (int, float, optional): Average factor that is used to
-                average the loss. Defaults to None.
-            reduction_override (str, optional): The reduction method used to
-                override the original reduction method of the loss.
-                Defaults to None.
-        """
-        assert reduction_override in (None, "none", "mean", "sum")
-        reduction = reduction_override if reduction_override else self.reduction
-
-        losses = self.loss_weight * bce_with_logits_loss(
-            pred, target, weight, reduction=reduction, avg_factor=avg_factor, pos_weight=self.pos_weight
-        )
-        return losses
-
-
-@MODELS.register_module()
-class BEVCornerLoss(nn.Module):
-    """Compute 4 corner losses between predictions and gt boxes."""
+class RotatedBEVIOULoss(nn.Module):
+    """Compute rotated GIOU loss between predictions and gt boxes."""
 
     def __init__(
         self,
         out_size_factor,
         voxel_size,
         pc_range,
-        gt_diagonal_norm: bool,
         cone_label_index: Optional[int],
         barrier_label_index: Optional[int],
+        num_orientation_bins=4,
+        orientation_bin_offset=torch.pi / 4,
         loss_weight=1.0,
         reduction="mean",
     ) -> None:
+        
         super().__init__()
         self.loss_weight = loss_weight
         self.reduction = reduction
         self.out_size_factor = out_size_factor
         self.voxel_size = voxel_size
         self.pc_range = pc_range
-        self.gt_diagonal_norm = gt_diagonal_norm
         self.cone_label_index = cone_label_index
         self.barrier_label_index = barrier_label_index
-
+        self.num_orientation_bins = num_orientation_bins
+        self.orientation_bin_offset = orientation_bin_offset 
+        self.bin_size = 2 * torch.pi / self.num_orientation_bins
+    
     def _convert_to_bev_corners(
         self, 
         bboxes: Tensor, 
         labels: Tensor, 
-        orientations: Tensor,
         is_gt: bool = False) -> Tensor:
         """
         bboxes (B, num_proposal, 10)
@@ -157,17 +59,41 @@ class BEVCornerLoss(nn.Module):
         center_x = bboxes[:, :, 0] * self.out_size_factor * self.voxel_size[0] + self.pc_range[0]
         center_y = bboxes[:, :, 1] * self.out_size_factor * self.voxel_size[1] + self.pc_range[1]
         lw = bboxes[:, :, 3:5].exp()
-        if orientations is not None:
-            rot_sin = orientations[:, :, 0:1]
-            rot_cos = orientations[:, :, 1:2]
-        else:
-            rot_sin = bboxes[:, :, 6:7]
-            rot_cos = bboxes[:, :, 7:8]
+        # if yaw_preds is not None and directions is not None and not is_gt:
+        #     final_directions = directions.argmax(dim=2, keepdim=True)
+        #     # The residual is only meaningful inside its own bin, so clamp before
+        #     # un-binning. This also keeps a residual head that has drifted (the
+        #     # sin() training objective is satisfied at both r and r + pi) from
+        #     # producing a full half-turn error.
+        #     yaw_preds = yaw_preds.clamp(min=-self.bin_size / 2, max=self.bin_size / 2)
+        #     # Direct inverse of encode(). Wrapping the residual with limit_period over
+        #     # bin_size instead would snap any prediction that drifts outside
+        #     # [-bin_size / 2, bin_size / 2) into the neighbouring bin, turning a small
+        #     # regression error into a discontinuous bin_size jump.
+        #     rot = yaw_preds + self.orientation_bin_offset + (
+        #         final_directions.float() * self.bin_size + self.bin_size / 2
+        #     )
+        #     rot = limit_period(rot, offset=0.5, period=2 * torch.pi)  # limit to [-pi, pi)
+        #     rot_sin = torch.sin(rot)
+        #     rot_cos = torch.cos(rot)
+        # else:
+        #     rot_sin = bboxes[:, :, 6:7]
+        #     rot_cos = bboxes[:, :, 7:8]
         
-        if not is_gt:
-            norm_rotation = torch.sqrt(rot_sin.square() + rot_cos.square() + 1e-6)
-            rot_sin = rot_sin / norm_rotation
-            rot_cos = rot_cos / norm_rotation
+        #     if not is_gt:
+        #         norm_rotation = torch.sqrt(rot_sin.square() + rot_cos.square() + 1e-6)
+        #         rot_sin = rot_sin / norm_rotation
+        #         rot_cos = rot_cos / norm_rotation
+        
+        yaw_preds = bboxes[:, :, 8:9].clamp(min=-self.bin_size / 2, max=self.bin_size / 2)
+        directions = bboxes[:, :, 9:13].argmax(dim=2, keepdim=True)
+
+        rot = yaw_preds + self.orientation_bin_offset + (
+            directions.float() * self.bin_size + self.bin_size / 2
+        )
+        rot = limit_period(rot, offset=0.5, period=2 * torch.pi)  # limit to [-pi, pi)
+        rot_sin = torch.sin(rot)
+        rot_cos = torch.cos(rot)
 
         row1 = torch.cat([rot_cos, rot_sin], dim=-1)
         row2 = torch.cat([-rot_sin, rot_cos], dim=-1)  # (B, N, 2)
@@ -206,76 +132,6 @@ class BEVCornerLoss(nn.Module):
         # lw_diagonal = torch.sqrt(lw[:, :, 0].square() + lw[:, :, 1].square() + 1e-6)
         return rotated, lw
 
-    def forward(
-        self,
-        preds_bboxes: Tensor,
-        gts_bboxes: Tensor,
-        labels: Tensor,
-        weight: Tensor,
-        avg_factor: Optional[Union[int, float]] = None,
-        reduction_override: Optional[str] = None,
-    ) -> Tensor:
-        """
-        preds_bboxes (B, num_proposals, 10)
-        gts_bboxes (B, num_proposals, 10)
-        labels (B, num_proposals, )
-        """
-        assert reduction_override in (None, "none", "mean", "sum")
-        reduction = reduction_override if reduction_override else self.reduction
-
-        preds_corners, _ = self._convert_to_bev_corners(bboxes=preds_bboxes, labels=labels)
-        gts_corners, gts_length_width = self._convert_to_bev_corners(bboxes=gts_bboxes, labels=labels)
-        if self.gt_diagonal_norm:
-            norm_values = torch.sqrt(gts_length_width[:, :, 0].square() + gts_length_width[:, :, 1].square() + 1e-6)
-        else:
-            norm_values = None
-
-        if self.barrier_label_index is not None:
-            barrier_masks = labels == self.barrier_label_index
-        else:
-            barrier_masks = None
-
-        losses = corner_l1_losses(
-            preds_corners,
-            gts_corners,
-            weight,
-            reduction=reduction,
-            avg_factor=avg_factor,
-            norm_values=norm_values,
-            barrier_masks=barrier_masks,
-        )  # (B, N)
-
-        return self.loss_weight * losses
-
-
-@MODELS.register_module()
-class RotatedBEVGIOULoss(BEVCornerLoss):
-    """Compute rotated GIOU loss between predictions and gt boxes."""
-
-    def __init__(
-        self,
-        out_size_factor,
-        voxel_size,
-        pc_range,
-        gt_diagonal_norm: bool,
-        cone_label_index: Optional[int],
-        barrier_label_index: Optional[int],
-        giou: bool=True,
-        loss_weight=1.0,
-        reduction="mean",
-    ) -> None:
-        super().__init__(
-            out_size_factor=out_size_factor,
-            voxel_size=voxel_size,
-            pc_range=pc_range,
-            gt_diagonal_norm=gt_diagonal_norm,
-            cone_label_index=cone_label_index,
-            barrier_label_index=barrier_label_index,
-            loss_weight=loss_weight,
-            reduction=reduction,
-        )
-        self.giou = giou
-    
     def convex_hull_area(self, corners1: Tensor, corners2: Tensor) -> Tensor:
         """Area of the convex hull of two rotated boxes.
 
@@ -324,8 +180,6 @@ class RotatedBEVGIOULoss(BEVCornerLoss):
         self,
         preds_bboxes: Tensor,
         gts_bboxes: Tensor,
-        preds_orientation: Tensor,
-        gts_orientation: Tensor,
         labels: Tensor,
         weight: Tensor,
         avg_factor: Optional[Union[int, float]] = None,
@@ -338,26 +192,19 @@ class RotatedBEVGIOULoss(BEVCornerLoss):
         """
         assert reduction_override in (None, "none", "mean", "sum")
         reduction = reduction_override if reduction_override else self.reduction
-
-        preds_corners, preds_length_width = self._convert_to_bev_corners(bboxes=preds_bboxes, orientations=preds_orientation, labels=labels, is_gt=False)
-        gts_corners, gts_length_width = self._convert_to_bev_corners(bboxes=gts_bboxes, orientations=gts_orientation, labels=labels, is_gt=True)
         
+        preds_corners, preds_length_width = self._convert_to_bev_corners(bboxes=preds_bboxes, labels=labels, is_gt=False)
+        gts_corners, gts_length_width = self._convert_to_bev_corners(bboxes=gts_bboxes, labels=labels, is_gt=True)
+
         intersection, _ = oriented_box_intersection_2d(preds_corners, gts_corners)  # (B, N)    
         area1 = preds_length_width[:, :, 0] * preds_length_width[:, :, 1]
         area2 = gts_length_width[:, :, 0] * gts_length_width[:, :, 1]
         union = area1 + area2 - intersection
-        iou = intersection / union
-        
-        if self.giou:
-            convex_hull_area = self.convex_hull_area(preds_corners, gts_corners)
-            giou = iou - (convex_hull_area - union) / convex_hull_area
-        else:
-            giou = iou
-            
-        targets = torch.ones_like(giou)
+        iou = intersection / (union + 1e-8)
+        targets = torch.ones_like(iou)
 
-        losses = giou_loss(
-            giou, 
+        losses = iou_loss(
+            iou, 
             targets,
             weight,
             reduction=reduction,
